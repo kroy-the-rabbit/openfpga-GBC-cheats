@@ -83,7 +83,12 @@ python3 "$HERE/reverse_bits.py" output_files/ap_core.rbf "$BDIR/$RBF_NAME"
 rm -rf "$BDIR/sd"
 rsync -a --exclude .gitkeep "$REPO/pkg/$TARGET/" "$BDIR/sd/"
 cp "$BDIR/$RBF_NAME" "$BDIR/sd/Cores/$CORE_NAME/$RBF_NAME"
-STAMP="${VERSION}-cheats.${GIT_SHA:-nogit}${GIT_DIRTY:+.dirty}"
+# A tagged build is named after its tag, so the Pocket menu reads a version a
+# human can compare at a glance: 1.4.0-cheats.2 is obviously not .1. Untagged
+# builds keep the commit sha, which is what you want while iterating.
+STAMP="${RELEASE_NAME:-}"
+STAMP="${STAMP#v}"
+[[ -n "$STAMP" ]] || STAMP="${VERSION}-cheats.${GIT_SHA:-nogit}${GIT_DIRTY:+.dirty}"
 python3 - "$BDIR/sd/Cores/$CORE_NAME/core.json" "$STAMP" "$(date -u +%Y-%m-%d)" <<'PY'
 import json, sys
 path, version, date = sys.argv[1:]

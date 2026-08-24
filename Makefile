@@ -22,7 +22,7 @@ RUN = $(PODMAN) run --rm $(PODMAN_TTY) \
 	--userns=keep-id --security-opt label=disable \
 	-v "$(CURDIR):/work" -w /work -e HOME=/tmp \
 	-e GIT_SHA=$(GIT_SHA) -e GIT_DIRTY=$(GIT_DIRTY) -e SKIP_COMPILE=$(SKIP_COMPILE) \
-	-e SEED=$(SEED) \
+	-e SEED=$(SEED) -e RELEASE_NAME=$(RELEASE_NAME) \
 	$(IMAGE)
 
 .PHONY: installers image gbc gb all report flash-gbc flash-gb shell clean
