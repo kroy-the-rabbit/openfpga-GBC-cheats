@@ -42,12 +42,11 @@ Works with ROMs on the SD card and with a physical cartridge.
    cheats that are on appear over the picture, above a count of what was parsed
    and whether this game came from a cartridge or a file. A file that never
    loaded says NO CHEATS LOADED.
-3. **Cheats enabled** turns the whole lot on and off, and it is **on at every
-   launch**. A cheat file next to the ROM therefore takes effect as soon as the
-   game loads, with no trip to the menu: the file decides what is on, not the
-   core. Switching it off lasts for that session only, because the switch is
-   deliberately not remembered. With no cheat file loaded it does nothing
-   either way.
+3. **Cheats enabled** turns the whole lot on and off, and it is **off at every
+   launch**. Nothing is patched or written until you switch it on, and the core
+   forgets that you did as soon as the session ends, so no game ever starts with
+   cheats live because of something you did days ago. The file next to the ROM
+   still decides *which* cheats are on; this decides whether any of them run.
 
 Nothing has to be converted or precompiled. The core parses the ASCII itself.
 
@@ -155,7 +154,7 @@ same browser is the fallback if automatic naming ever does not pick a file up.
 | Entry | Address | Notes |
 |---|---|---|
 | Load Cheats | data slot 7 | file browser, `.cht` / `.txt` |
-| Cheats enabled | `0xF3000000` bit 0 | global switch, on at every launch, deliberately not persisted |
+| Cheats enabled | `0xF3000000` bit 0 | global switch, off at every launch, never remembered |
 | Show cheats | `0xF3000010` bit 0 | draws the names of the enabled cheats over the picture, off at every launch, not persisted |
 
 The two switches have an address each rather than two bits of one. Sharing a
@@ -241,13 +240,17 @@ Then tick **Show cheats** and read the top of the screen.
 | the names you expected | the file is fine. Check **Cheats enabled**, and that the codes match this exact game revision |
 | CARTRIDGE when you meant to play a file, or the reverse | the cheats belong to the other one |
 
-**Cheats enabled** is not persisted, and that is on purpose. APF keys saved
-values by widget id, so a value written by one build can be restored into a
-control that has since changed meaning, and this particular control decides
-whether the core writes into a running game's RAM. It starts on at every launch
-and the file next to the ROM decides the rest. The other menu entries do
-persist, as upstream had them; if one behaves oddly after an upgrade, delete
-`/Settings/kroy.GBC/Interact/` on the card to fall back to defaults.
+Neither cheat switch is remembered, and both start off. Two reasons. APF keys
+saved values by widget id, so a value written by one build can be restored into
+a control that has since changed meaning. And **Cheats enabled** decides whether
+the core writes into a running game's RAM: a GameShark code fails open, writing
+whatever the code says to whatever happens to be at that address, so a session
+that begins with cheats live because of a checkbox you ticked days ago for a
+different game is the wrong default. Switching them on is one press.
+
+The other menu entries do persist, as upstream had them; if one behaves oddly
+after an upgrade, delete `/Settings/kroy.GBC/Interact/` on the card to fall back
+to defaults.
 
 ## How it works
 

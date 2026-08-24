@@ -37,15 +37,17 @@ TARGETS = (("gbc", "kroy.GBC"), ("gb", "kroy.GB"))
 
 def cheat_entries() -> list[dict]:
     return [{
-        # Deliberately not persisted. APF keys saved values by widget id, so a
-        # value written by one build can be restored into a control that has
-        # since changed meaning, and this switch decides whether the core
-        # writes to the game's RAM. It starts on every launch and the file
-        # next to the ROM decides the rest, which is a state you can reason
-        # about; a remembered one is not.
+        # Off at every launch, and never remembered. Two reasons. APF keys
+        # saved values by widget id, so a value written by one build can be
+        # restored into a control that has since changed meaning. And this
+        # switch decides whether the core writes into a running game's RAM:
+        # a GameShark code fails open, writing whatever the code says to
+        # whatever happens to be at that address, so a session that begins
+        # with cheats live because of something you did days ago is the wrong
+        # default. Turning them on is one press and it says what it did.
         "name": "Cheats enabled", "id": ID_MASTER, "type": "check",
         "enabled": True, "persist": False, "address": ADDR_MASTER,
-        "mask": "0xFFFFFFFE", "defaultval": "0x00000001", "value": "0x00000001",
+        "mask": "0xFFFFFFFE", "defaultval": "0x00000000", "value": "0x00000001",
     }, {
         # Draws the names of the enabled cheats over the game picture. That is
         # the only place a core can put text: APF fixes every menu label in

@@ -482,7 +482,11 @@ reg [31:0] run_settings  = 32'h0;
 //! Cheats are switched on and off in the cheat file itself (each cheat's
 //! `enable` key), which cheat_loader turns into a per-group mask. The only
 //! menu control is this global switch.
-reg cheats_master = 1'b1;
+// Off until something asks for it. APF writes the interact defaults at boot,
+// and this matches them; Power-Up Don't Care is on for this project, so the
+// initial value is a statement of intent rather than a guarantee, which is why
+// the default in interact.json is the one that matters.
+reg cheats_master = 1'b0;
 reg cheats_osd    = 1'b0;   //! Show the enabled cheats over the picture
 logic [31:0] int_bridge_read_data;
 
