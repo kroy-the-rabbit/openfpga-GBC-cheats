@@ -4,8 +4,8 @@
     "metadata": {
       "platform_ids": ["gbc"],
       "shortname": "GBC",
-      "description": "Game Boy Color",
-      "author": "budude2",
+      "description": "Game Boy Color (cheats)",
+      "author": "kroy",
       "url": "https://github.com/kroy-the-rabbit/openfpga-GBC-cheats",
       "version": "1.4.0",
       "date_release": "2026-04-12"

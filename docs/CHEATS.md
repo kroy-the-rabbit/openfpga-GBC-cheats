@@ -236,7 +236,7 @@ control that has since changed meaning, and this particular control decides
 whether the core writes into a running game's RAM. It starts on at every launch
 and the file next to the ROM decides the rest. The other menu entries do
 persist, as upstream had them; if one behaves oddly after an upgrade, delete
-`/Settings/budude2.GBC/Interact/` on the card to fall back to defaults.
+`/Settings/kroy.GBC/Interact/` on the card to fall back to defaults.
 
 ## How it works
 

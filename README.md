@@ -21,6 +21,13 @@ Prebuilt cores are on the [Releases](../../releases) page: download the zip for
 the core you want and unzip it. Nothing below needs a terminal; building from
 source is only for changing something.
 
+This core installs as `Cores/kroy.GBC` and `Cores/kroy.GB`. It does not replace
+an upstream `budude2.GBC` install, it sits beside it: APF names a core folder
+after the author in its `core.json`, and this one says `kroy` because it is not
+budude2's build. Delete the old folders if you do not want both listed, and
+their `/Settings/budude2.*` folders with them. Saves are keyed by platform, not
+by core, so they carry over untouched.
+
 To install the core, copy the `Assets`, `Cores`, and `Platforms` folders over to the root of your SD card. Please note that Finder on macOS automatically _replaces_ folders, rather than merging them like Windows does, so you have to manually merge the folders.
 
 Place the GBC bios in `/Assets/gbc/common` named "gbc_bios.bin", the GB bios in `/Assets/gb/common` named "gb_bios.bin", and the SGB bios in `/Assets/gb/common` named "sgb_boot.bin". These are not in the zip and the core will not run without them.

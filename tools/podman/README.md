@@ -24,8 +24,8 @@ Per target you get:
 | Path | What |
 |---|---|
 | `build/gbc/gbc.rbf_r` | Pocket bitstream (bit-reversed `.rbf`) |
-| `build/gbc/sd/` | SD-card tree: `pkg/gbc/` plus the bitstream in `Cores/budude2.GBC/` |
-| `build/gbc/budude2.GBC_<ver>-cheats.<sha>.zip` | the same, zipped |
+| `build/gbc/sd/` | SD-card tree: `pkg/gbc/` plus the bitstream in `Cores/kroy.GBC/` |
+| `build/gbc/kroy.GBC_<ver>.zip` | the same, zipped |
 | `build/gbc/report.txt` | worst slack per analysis type, utilization, full fit/STA summaries |
 | `build/gbc/build.log` | full Quartus output |
 | `build/gbc/src/` | the compiled source copy (incremental `db/` kept between runs) |

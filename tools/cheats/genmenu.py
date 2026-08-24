@@ -27,7 +27,7 @@ ID_MASTER, ID_SHOW = 1010, 1011
 
 ADDR_MASTER = "0xF3000000"   # bit 0 global cheat switch, bit 1 show the list
 
-TARGETS = (("gbc", "budude2.GBC"), ("gb", "budude2.GB"))
+TARGETS = (("gbc", "kroy.GBC"), ("gb", "kroy.GB"))
 
 
 def cheat_entries() -> list[dict]:
