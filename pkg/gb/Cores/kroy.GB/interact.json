@@ -11,6 +11,28 @@
         "value": 1
       },
       {
+        "name": "Cheats enabled",
+        "id": 1010,
+        "type": "check",
+        "enabled": true,
+        "persist": false,
+        "address": "0xF3000000",
+        "mask": "0xFFFFFFFE",
+        "defaultval": "0x00000000",
+        "value": "0x00000001"
+      },
+      {
+        "name": "Show cheats",
+        "id": 1011,
+        "type": "check",
+        "enabled": true,
+        "persist": false,
+        "address": "0xF3000010",
+        "mask": "0xFFFFFFFE",
+        "defaultval": "0x00000000",
+        "value": "0x00000001"
+      },
+      {
         "name": "Enable SGB",
         "id": 1000,
         "type": "check",
@@ -99,28 +121,6 @@
         "mask": "0xFFFFFF7F",
         "defaultval": "0x00000000",
         "value": "0x00000080"
-      },
-      {
-        "name": "Cheats enabled",
-        "id": 1010,
-        "type": "check",
-        "enabled": true,
-        "persist": false,
-        "address": "0xF3000000",
-        "mask": "0xFFFFFFFE",
-        "defaultval": "0x00000000",
-        "value": "0x00000001"
-      },
-      {
-        "name": "Show cheats",
-        "id": 1011,
-        "type": "check",
-        "enabled": true,
-        "persist": false,
-        "address": "0xF3000010",
-        "mask": "0xFFFFFFFE",
-        "defaultval": "0x00000000",
-        "value": "0x00000001"
       }
     ],
     "messages": []

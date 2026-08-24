@@ -73,7 +73,13 @@ def build() -> dict[str, str]:
                       object_pairs_hook=collections.OrderedDict)
         v = j["interact"]["variables"]
         base = [x for x in v if not is_cheat_entry(x)]
-        v[:] = base + [collections.OrderedDict(e) for e in cheat_entries()]
+        cheats = [collections.OrderedDict(e) for e in cheat_entries()]
+        # Keep the cheat controls together with the Load Cheats slot, which APF
+        # draws at the top of the menu. Appended at the end they sat below
+        # seven unrelated options, a screen away from the file they act on.
+        # Reset core stays first, being where every other core puts it.
+        head = base[:1] if base and base[0].get("type") == "action" else []
+        v[:] = head + cheats + base[len(head):]
         assert len(v) <= MAX_ENTRIES, f"{path}: {len(v)} entries"
         files[path] = json.dumps(j, indent=2) + "\n"
     return files
