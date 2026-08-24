@@ -34,8 +34,14 @@ TARGETS = (("gbc", "budude2.GBC"), ("gb", "budude2.GB"))
 
 def cheat_entries() -> list[dict]:
     return [{
+        # Deliberately not persisted. APF keys saved values by widget id, so a
+        # value written by one build can be restored into a control that has
+        # since changed meaning, and this switch decides whether the core
+        # writes to the game's RAM. It starts on every launch and the file
+        # next to the ROM decides the rest, which is a state you can reason
+        # about; a remembered one is not.
         "name": "Cheats enabled", "id": ID_MASTER, "type": "check",
-        "enabled": True, "persist": True, "address": ADDR_MASTER,
+        "enabled": True, "persist": False, "address": ADDR_MASTER,
         "mask": "0xFFFFFFFE", "defaultval": "0x00000001", "value": "0x00000001",
     }, {
         # Short label on purpose: the Pocket gives a menu row one line, and a

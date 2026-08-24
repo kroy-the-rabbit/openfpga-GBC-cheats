@@ -150,7 +150,7 @@ same browser is the fallback if automatic naming ever does not pick a file up.
 | Entry | Address | Notes |
 |---|---|---|
 | Load Cheats | data slot 7 | file browser, `.cht` / `.txt` |
-| Cheats enabled | `0xF3000000` bit 0 | global switch, on by default, persists |
+| Cheats enabled | `0xF3000000` bit 0 | global switch, on at every launch, deliberately not persisted |
 | CD: | `0xF3000008` | `{pokes[7:0], override hits[7:0], enable mask[7:0], master, 0, entries[5:0]}`, read only. Everything after parsing: how many codes reached the code store, whether the file's enable flags survived, and which half of the engine is doing anything. Both counters saturate at 255; only whether they move matters. |
 | CL: | `0xF3000004` | `{bytes[19:0], cheats[5:0], codes[5:0]}`, read only, shown as hex. `0x170109` is 368 bytes received, 4 cheats, 9 codes. Byte counts are always a multiple of four: APF only sends whole 32-bit words, so a 365-byte file arrives as 368. A byte count of 0 means the slot never loaded, which separates an APF/data.json problem from a parsing one. |
 
@@ -192,9 +192,12 @@ Then read **CL:**; it is packed `{bytes, cheats, codes}`.
 | bytes > 0, cheats 0 | the file arrived but nothing decoded: placeholder `XX` codes, or a format the parser rejects |
 | cheats > 0, no effect | check **Cheats enabled**, and that the codes match this exact game revision |
 
-Note that APF persists menu values by widget id, so a value saved by an older
-build of this core can be restored into a control that has since changed
-meaning. If a switch behaves oddly after an upgrade, delete
+**Cheats enabled** is not persisted, and that is on purpose. APF keys saved
+values by widget id, so a value written by one build can be restored into a
+control that has since changed meaning, and this particular control decides
+whether the core writes into a running game's RAM. It starts on at every launch
+and the file next to the ROM decides the rest. The other menu entries do
+persist, as upstream had them; if one behaves oddly after an upgrade, delete
 `/Settings/budude2.GBC/Interact/` on the card to fall back to defaults.
 
 ## How it works
