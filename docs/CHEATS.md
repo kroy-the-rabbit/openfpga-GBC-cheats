@@ -180,7 +180,9 @@ look identical to a broken cheat engine from the outside:
   code published for another revision is loaded, enabled, and never triggers.
   Check it against the ROM yourself: an address in `$4000-$7FFF` is banked, so
   the byte has to match in at least one 16 KB bank for the code ever to fire.
-  The picker repo has a `checkrom` tool that does this for a whole file.
+  The picker,
+  [openfpga-GBC-cheats-ui](https://github.com/kroy-the-rabbit/openfpga-GBC-cheats-ui),
+  has a `checkrom` tool that does this for a whole file.
 
 Then read **CL:**; it is packed `{bytes, cheats, codes}`.
 
@@ -255,8 +257,10 @@ make test CHT_DB=... ARGS="-n 100" # sample it instead of all 2456 files
 The cross-check below needs a corpus of real `.cht` files, which is third-party
 content and is not carried here: point `CHT_DB` at a directory of them and it
 runs, leave it unset and that one step says `SKIPPED` while every other step
-still runs. The picker repo fetches the libretro GB/GBC database if you want the
-same corpus this was developed against.
+still runs. The picker,
+[openfpga-GBC-cheats-ui](https://github.com/kroy-the-rabbit/openfpga-GBC-cheats-ui),
+fetches the libretro GB/GBC database if you want the same corpus this was
+developed against.
 
 `tools/sim/run.py` streams every `.cht` under `$CHT_DB` through the actual RTL
 in Icarus Verilog and compares the emitted codes against
