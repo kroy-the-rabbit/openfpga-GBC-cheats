@@ -768,6 +768,9 @@ set_global_assignment -name VERILOG_FILE gb/sprites.v
 set_global_assignment -name VHDL_FILE gb/spram.vhd
 set_global_assignment -name VHDL_FILE gb/reg_savestates.vhd
 set_global_assignment -name SYSTEMVERILOG_FILE gb/megaswizzle.sv
+set_global_assignment -name SYSTEMVERILOG_FILE gb/cheatcodes.sv
+set_global_assignment -name SYSTEMVERILOG_FILE gb/cheat_loader.sv
+set_global_assignment -name SYSTEMVERILOG_FILE gb/cheat_poker.sv
 set_global_assignment -name VERILOG_FILE gb/link.v
 set_global_assignment -name VERILOG_FILE gb/hdma.v
 set_global_assignment -name VHDL_FILE gb/gbc_snd.vhd

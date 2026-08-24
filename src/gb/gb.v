@@ -78,6 +78,17 @@ module gb (
 	output speed,   //GBC
 	output DMA_on,
 
+	// cheat engine (Game Genie style CPU read override, see cheatcodes.sv)
+	input          gg_reset,
+	input          gg_en,
+	input  [31:0]  gg_mask,
+	input  [128:0] gg_code,
+	output         gg_available,
+	// diagnostics, surfaced in the core menu
+	output [5:0]   gg_entries,
+	output [7:0]   gg_ovr_hits,
+	output [7:0]   gg_pokes,
+
 	//serial port
 	output sc_int_clock2,
 	input serial_clk_in,
@@ -315,7 +326,18 @@ wire cpu_wr_n_edge = ~(old_cpu_wr_n & ~cpu_wr_n);
 
 wire cpu_stop;
 
+wire genie_ovr;
+wire [7:0] genie_data;
 wire [15:0] cpu_addr_raw;
+
+// A Game Genie patches the cartridge, so the override must only stand in for a
+// byte the cartridge would have supplied. Two higher-priority sources in the
+// cpu_di mux above are not the cartridge and must never be patched: the
+// interrupt vector, and the internal boot ROM, which occupies the same low
+// addresses Game Genie codes use. Patching either is how an unconditional code
+// stops the machine booting at all.
+wire cheat_read_ok = ~irq_ack & ~sel_boot_rom;
+wire cheat_ovr = genie_ovr & cheat_read_ok;
 
 wire [7:0] snd_d_in;
 wire [7:0] snd_d_out;
@@ -349,7 +371,7 @@ GBse cpu (
    .HALT_n            (                 ),
    .BUSAK_n           (                 ),
    .A                 ( cpu_addr_raw    ),
-   .DI                ( cpu_di          ),
+   .DI                ( cheat_ovr ? genie_data : cpu_di ),
    .DO                ( cpu_do          ),
 	.STOP              ( cpu_stop        ),
    .isGBC             ( isGBC           ),
@@ -360,6 +382,92 @@ GBse cpu (
    .SaveStateBus_rst  (SaveStateBus_rst ),
    .SaveStateBus_Dout (SaveStateBus_wired_or[0])
 );
+
+// --------------------------------------------------------------------
+// --------------------------- Cheat Engine ---------------------------
+// --------------------------------------------------------------------
+
+// Both declared here rather than further down with the logic that drives them:
+// the RAM blocks arbitrate their second port between the savestate engine and
+// the cheat poker, and the poker keys off vblank.
+wire savestate_busy;
+wire video_irq, vblank_irq;
+
+wire [4:0]  cheat_scan_index;
+wire [15:0] cheat_scan_addr;
+wire [7:0]  cheat_scan_data;
+wire        cheat_scan_poke;
+wire [2:0]  cheat_scan_bank;
+wire        cheat_scan_bankq;
+
+CODES codes (
+	.clk        (clk_sys),
+	.reset      (gg_reset),
+	.enable     (gg_en),
+	.addr_in    (cpu_addr),
+	.data_in    (cpu_di),
+	.available  (gg_available),
+	.code       (gg_code),
+	.enable_mask(gg_mask),
+	.genie_ovr  (genie_ovr),
+	.genie_data (genie_data),
+
+	.scan_index     (cheat_scan_index),
+	.scan_addr      (cheat_scan_addr),
+	.scan_data      (cheat_scan_data),
+	.scan_poke      (cheat_scan_poke),
+	.scan_bank      (cheat_scan_bank),
+	.scan_bank_qual (cheat_scan_bankq),
+	.entry_count    (gg_entries)
+);
+
+// GameShark codes are written into RAM once a frame instead of being faked on
+// the CPU's read, so the game's own logic still sees the value and can clamp
+// it. See src/gb/cheat_poker.sv for why that difference is visible on screen.
+wire        poke_wr;
+wire [15:0] poke_addr;
+wire [7:0]  poke_data;
+
+cheat_poker #(.MAX_CODES(32), .INDEX_W(5)) poker (
+	.clk        (clk_sys),
+	.reset      (gg_reset),
+	.enable     (gg_en),
+	.vblank     (vblank_irq),
+	.blocked    (savestate_busy),
+
+	.scan_index     (cheat_scan_index),
+	.scan_addr      (cheat_scan_addr),
+	.scan_data      (cheat_scan_data),
+	.scan_poke      (cheat_scan_poke),
+	.scan_bank      (cheat_scan_bank),
+	.scan_bank_qual (cheat_scan_bankq),
+	.wram_bank      (wram_bank),
+
+	.poke_wr    (poke_wr),
+	.poke_addr  (poke_addr),
+	.poke_data  (poke_data)
+);
+
+// The poker only ever aims at these two blocks; CODES keeps every other
+// address on the read override, so nothing that worked before stops.
+wire poke_hram = poke_wr && (poke_addr[15:7] == 9'b111111111)
+                         && (poke_addr != 16'hFFFF);      // $FF80-$FFFE
+wire poke_wram = poke_wr && (poke_addr[15:13] == 3'b110); // $C000-$DFFF
+
+// Both halves of the engine count what they do, so the core menu can say which
+// one is idle. They saturate; only whether they move at all is interesting.
+reg [7:0] gg_ovr_hits_r = 8'd0, gg_pokes_r = 8'd0;
+always @(posedge clk_sys) begin
+	if (gg_reset) begin
+		gg_ovr_hits_r <= 8'd0;
+		gg_pokes_r    <= 8'd0;
+	end else begin
+		if (cheat_ovr && gg_ovr_hits_r != 8'hFF) gg_ovr_hits_r <= gg_ovr_hits_r + 8'd1;
+		if (poke_wr   && gg_pokes_r    != 8'hFF) gg_pokes_r    <= gg_pokes_r + 8'd1;
+	end
+end
+assign gg_ovr_hits = gg_ovr_hits_r;
+assign gg_pokes    = gg_pokes_r;
 
 // --------------------------------------------------------------------
 // --------------------- GBC/DMG mode KEY0 (GBC) ----------------------
@@ -541,7 +649,6 @@ reg [3:0] inputD, inputD2;
 // irq is low when an enable irq is active
 assign irq_n = !(ie_r & if_r);
 
-wire video_irq,vblank_irq;
 wire timer_irq;
 
 reg old_vblank_irq, old_video_irq, old_timer_irq, old_serial_irq;
@@ -813,9 +920,9 @@ dpram #(7) zpram (
 	.q_a       (zpram_do     ),
 	
 	.clock_b   (clk_sys),
-	.address_b (Savestate_RAMAddr[6:0]),
-	.wren_b    (Savestate_RAMRWrEn[3]),
-	.data_b    (Savestate_RAMWriteData),
+	.address_b (savestate_busy ? Savestate_RAMAddr[6:0]  : poke_addr[6:0]),
+	.wren_b    (savestate_busy ? Savestate_RAMRWrEn[3]   : poke_hram),
+	.data_b    (savestate_busy ? Savestate_RAMWriteData  : poke_data),
 	.q_b       (Savestate_RAMReadData_ZRAM)
 );
 
@@ -840,6 +947,11 @@ wire [2:0] wram_bank_o = (!wram_bank ? 3'd1 : wram_bank);
 wire [14:0] wram_addr = (wram_addr_i[12]) ? { wram_bank_o, wram_addr_i[11:0] }  // bank 1-7 $D000-DFFF
                                           : {        3'd0, wram_addr_i[11:0] }; // bank 0   $C000-CFFF
 
+// Same banking the CPU would go through, so a code aimed at $D000-$DFFF lands
+// in whichever bank SVBK currently selects.
+wire [14:0] poke_wram_addr = (poke_addr[12]) ? { wram_bank_o, poke_addr[11:0] }
+                                             : {       3'd0, poke_addr[11:0] };
+
 dpram #(15) wram (
 	.clock_a   (clk_cpu),
 	.address_a (wram_addr),
@@ -848,9 +960,9 @@ dpram #(15) wram (
 	.q_a       (wram_do),
 	
 	.clock_b   (clk_sys),
-	.address_b (Savestate_RAMAddr[14:0]),
-	.wren_b    (Savestate_RAMRWrEn[0]),
-	.data_b    (Savestate_RAMWriteData),
+	.address_b (savestate_busy ? Savestate_RAMAddr[14:0] : poke_wram_addr),
+	.wren_b    (savestate_busy ? Savestate_RAMRWrEn[0]   : poke_wram),
+	.data_b    (savestate_busy ? Savestate_RAMWriteData  : poke_data),
 	.q_b       (Savestate_RAMReadData_WRAM)
 );
 
@@ -1008,7 +1120,6 @@ assign DMA_on = cart_sel & (hdma_active | dma_rd);
 wire savestate_savestate;
 wire savestate_loadstate;
 wire [31:0] savestate_address;
-wire savestate_busy;
 wire savestate_loaded;
 
 assign SaveStateExt_Din  = SaveStateBus_Din;
