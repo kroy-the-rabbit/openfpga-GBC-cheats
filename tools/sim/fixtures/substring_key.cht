@@ -1,0 +1,8 @@
+cheats = 1
+
+notes_codecs = "Beaded"
+my_desc_field = "Decade"
+
+cheat0_desc = "Real cheat"
+cheat0_code = "010CAAC6"
+cheat0_enable = true
