@@ -25,7 +25,12 @@ MAX_GROUPS = 32      # cheat groups the RTL can hold (matches cheat_loader)
 # id block reserved for cheats; ids are persistence keys, so they must be stable
 ID_MASTER, ID_SHOW = 1010, 1011
 
-ADDR_MASTER = "0xF3000000"   # bit 0 global cheat switch, bit 1 show the list
+ADDR_MASTER = "0xF3000000"   # bit 0, the global cheat switch
+# The overlay gets an address of its own rather than another bit of the one
+# above. Two checkboxes sharing a word have to compose it through their masks,
+# and on hardware they did not: toggling the cheat switch cleared the overlay,
+# and the overlay checkbox did nothing at all. One control, one word.
+ADDR_SHOW = "0xF3000010"
 
 TARGETS = (("gbc", "kroy.GBC"), ("gb", "kroy.GB"))
 
@@ -48,8 +53,8 @@ def cheat_entries() -> list[dict]:
         # "Cheat 1". Not persisted either, and off by default, because it
         # covers the game.
         "name": "Show cheats", "id": ID_SHOW, "type": "check",
-        "enabled": True, "persist": False, "address": ADDR_MASTER,
-        "mask": "0xFFFFFFFD", "defaultval": "0x00000000", "value": "0x00000002",
+        "enabled": True, "persist": False, "address": ADDR_SHOW,
+        "mask": "0xFFFFFFFE", "defaultval": "0x00000000", "value": "0x00000001",
     }]
 
 

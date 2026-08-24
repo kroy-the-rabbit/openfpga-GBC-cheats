@@ -42,7 +42,12 @@ Works with ROMs on the SD card and with a physical cartridge.
    cheats that are on appear over the picture, above a count of what was parsed
    and whether this game came from a cartridge or a file. A file that never
    loaded says NO CHEATS LOADED.
-3. **Cheats enabled** turns the whole lot on and off.
+3. **Cheats enabled** turns the whole lot on and off, and it is **on at every
+   launch**. A cheat file next to the ROM therefore takes effect as soon as the
+   game loads, with no trip to the menu: the file decides what is on, not the
+   core. Switching it off lasts for that session only, because the switch is
+   deliberately not remembered. With no cheat file loaded it does nothing
+   either way.
 
 Nothing has to be converted or precompiled. The core parses the ASCII itself.
 
@@ -151,7 +156,13 @@ same browser is the fallback if automatic naming ever does not pick a file up.
 |---|---|---|
 | Load Cheats | data slot 7 | file browser, `.cht` / `.txt` |
 | Cheats enabled | `0xF3000000` bit 0 | global switch, on at every launch, deliberately not persisted |
-| Show cheats | `0xF3000000` bit 1 | draws the names of the enabled cheats over the picture, off at every launch, not persisted |
+| Show cheats | `0xF3000010` bit 0 | draws the names of the enabled cheats over the picture, off at every launch, not persisted |
+
+The two switches have an address each rather than two bits of one. Sharing a
+word means each checkbox has to preserve the other's bit through its mask, and
+on hardware that did not hold: toggling **Cheats enabled** cleared the overlay,
+and the overlay checkbox did nothing. Whatever APF composes per control, one
+control writing one word cannot be ambiguous.
 
 There were two hex readouts here, `CL:` and `CD:`, packing byte, cheat and code
 counts into a number you decoded by hand. The overlay says the same things in

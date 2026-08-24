@@ -117,10 +117,10 @@
         "type": "check",
         "enabled": true,
         "persist": false,
-        "address": "0xF3000000",
-        "mask": "0xFFFFFFFD",
+        "address": "0xF3000010",
+        "mask": "0xFFFFFFFE",
         "defaultval": "0x00000000",
-        "value": "0x00000002"
+        "value": "0x00000001"
       }
     ],
     "messages": []
