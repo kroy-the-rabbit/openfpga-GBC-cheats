@@ -4,6 +4,23 @@ Game Genie and GameShark codes, read straight from libretro `.cht` files. Which
 cheats are on is decided by the file; the core menu has a single global switch.
 Works with ROMs on the SD card and with a physical cartridge.
 
+> **Cheats can corrupt save files. Use at your own risk.**
+>
+> A cheat is not a setting, it is a write into the memory of a running game. A
+> GameShark code is a real write into work RAM, made once a frame, with nothing
+> to check against. Aimed at an address that means something else in your copy
+> it overwrites whatever is there, and a game builds its save data out of that
+> same memory, so the damage gets written into your save at the next save point.
+> Game Genie codes are safer: they carry a compare byte and the core only
+> patches when the byte already there matches, so on the wrong version a code
+> loads, reads as enabled, and does nothing.
+>
+> This is worst on a cartridge, where the save lives in the cartridge's own
+> battery-backed RAM, the core reads and writes it over the edge connector, and
+> nothing on the SD card is a backup of it. Back up anything you care about
+> before switching cheats on, and read [Cartridges](#cartridges) first if the
+> game is a cartridge.
+
 ## Quick start
 
 1. Put the `.cht` next to the ROM, named after the **whole** ROM filename with
@@ -148,6 +165,23 @@ named after slot 0, so `<rom filename>.cht` is not picked up automatically. Use
 **Load Cheats** in the core menu to browse for the file once; the slot sets the
 "persist browsed filename" parameter, so it comes back on later launches. The
 same browser is the fallback if automatic naming ever does not pick a file up.
+
+That browsing is also where the risk lives. Nothing reads the cartridge, so
+which file you point at is your decision alone and neither the core nor
+anything else can tell you it was the wrong one. You cannot tell a cartridge's
+revision from the outside either: the label does not say, and two carts that
+look identical can hold different builds with different memory layouts. A
+GameShark code published for the other revision then writes over whatever that
+address holds in yours, every frame, and the save it damages is the one in the
+cartridge. There is no undo, and a savestate is not a backup of it: dump the
+cartridge with a cart reader first if the save matters, and prefer Game Genie
+codes, which fail silently rather than destructively when the revision is
+wrong.
+
+The companion picker's
+[Cartridges](https://github.com/kroy-the-rabbit/openfpga-GBC-cheats-ui#cartridges-read-this-part)
+section covers the same ground from the file-preparation side, including how to
+name a cartridge so the right cheat file is the one you find.
 
 ## Menu reference
 

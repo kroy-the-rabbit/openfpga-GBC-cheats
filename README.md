@@ -13,6 +13,15 @@ The core menu has no room to name cheats, so the names are drawn over the game
 instead. The header says how many are on and whether the game came from a
 cartridge or a file on the card.
 
+> **Cheats can corrupt save files.** A GameShark code writes into the memory of
+> a running game once a frame, and a game builds its save data out of that same
+> memory, so a code aimed at the wrong address for your copy ends up written
+> into your save. That is worst on a cartridge, where the save lives in the
+> cartridge and nothing on the SD card is a backup of it. Back up anything you
+> care about first, and read
+> [docs/CHEATS.md](docs/CHEATS.md#cartridges) before putting codes on a
+> cartridge.
+
 Everything outside `src/` and `pkg/` is new here and none of it ships: a
 containerised Quartus build, a simulation harness, docs and example cheat files.
 Builds here also differ from upstream's in one way that is not the cheats, the
