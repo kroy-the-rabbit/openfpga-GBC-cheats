@@ -63,8 +63,31 @@ module cheat_loader #(
     output reg  [31:0]  enable_mask, // per-group on/off, read from the file
     output reg  [5:0]   code_count,  // codes accepted
     output reg  [5:0]   group_count, // groups accepted
-    output reg  [19:0]  byte_count   // bytes received, for the menu readout
+    output reg  [19:0]  byte_count,  // bytes received, for the menu readout
+
+    // The text of `cheatN_desc`, for the on screen list. Streamed a character
+    // at a time to cheat_titles as it is parsed; the description of a group
+    // always precedes its codes, so it can be written at the index the group
+    // is about to take. If that group turns out to hold no valid code it never
+    // commits, cur_group does not advance, and the next description lands in
+    // the same slot and overwrites it.
+    output reg          desc_wr,
+    output reg  [4:0]   desc_group,
+    output reg  [4:0]   desc_col,
+    output reg  [5:0]   desc_char,   // ASCII - 32, uppercased
+    output reg          desc_end     // desc_col is now the length
 );
+
+  localparam TITLE_W = 20;         // characters, one screen line at 8 px
+
+  // Fold to the font's range: uppercase, and anything outside it is a space.
+  function automatic [5:0] font_index(input [7:0] c);
+    reg [7:0] up;
+    begin
+      up = (c >= "a" && c <= "z") ? (c - 8'd32) : c;
+      font_index = (up >= 8'd32 && up <= 8'd95) ? (up - 8'd32) : 6'd0;
+    end
+  endfunction
 
   // ---------------------------------------------------------------- lexing --
   localparam [39:0] KEY_CODE   = "_code";
@@ -78,6 +101,7 @@ module cheat_loader #(
   // phantom Game Genie patch out of the description that follows.
   reg        pend_code;    // `_code` seen, waiting to see whether it is a key
   reg        pend_desc;
+  reg        capturing;   // inside the quoted value of a _desc key
   reg        pend_enable;
   reg        armed_code;   // a `_code =` key was seen; next string holds codes
   reg        armed_desc;
@@ -194,6 +218,8 @@ module cheat_loader #(
       hist           <= 56'd0;
       pend_code      <= 1'b0;
       pend_desc      <= 1'b0;
+      capturing      <= 1'b0;
+      desc_col       <= 5'd0;
       pend_enable    <= 1'b0;
       armed_code     <= 1'b0;
       armed_desc     <= 1'b0;
@@ -211,6 +237,10 @@ module cheat_loader #(
       byte_count     <= 20'd0;
       code           <= 129'd0;
       emit           <= 2'd0;
+      desc_wr        <= 1'b0;
+      desc_end       <= 1'b0;
+      desc_group     <= 5'd0;
+      desc_char      <= 6'd0;
       for (i = 0; i < 9; i = i + 1) nib[i] <= 4'd0;
     end else begin
       // emit sequencer runs independently of the byte stream
@@ -218,6 +248,10 @@ module cheat_loader #(
         2'd1: begin code[128] <= 1'b1; emit <= 2'd0; end
         default: ;
       endcase
+
+      // Both are one cycle strobes into cheat_titles.
+      desc_wr  <= 1'b0;
+      desc_end <= 1'b0;
 
       if (wr) begin
         // Counts every byte the loader hands over, whether or not it parses.
@@ -258,7 +292,15 @@ module cheat_loader #(
             end
           end
         end else if (in_str) begin
-          if (is_quote) in_str <= 1'b0;
+          if (is_quote) begin
+            in_str    <= 1'b0;
+            capturing <= 1'b0;
+            if (capturing) desc_end <= 1'b1;
+          end else if (capturing && desc_col < TITLE_W[4:0]) begin
+            desc_wr   <= 1'b1;
+            desc_char <= font_index(ch);
+            desc_col  <= desc_col + 5'd1;
+          end
         end else if (armed_enable && is_alnum) begin
           // the value of a `cheatN_enable` key: the first word after it
           if (last_group_ok && (cur_group != 6'd0) && !says_on)
@@ -283,6 +325,11 @@ module cheat_loader #(
             group_has_code <= 1'b0;
           end else begin
             in_str <= 1'b1;
+            if (armed_desc) begin
+              capturing  <= 1'b1;
+              desc_group <= cur_group[4:0];
+              desc_col   <= 5'd0;
+            end
           end
         end else begin
           hist <= {hist[47:0], ch};

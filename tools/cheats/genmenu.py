@@ -23,11 +23,9 @@ MAX_ENTRIES = 16     # APF's ceiling on interact.json entries
 MAX_GROUPS = 32      # cheat groups the RTL can hold (matches cheat_loader)
 
 # id block reserved for cheats; ids are persistence keys, so they must be stable
-ID_MASTER, ID_READOUT, ID_DEBUG = 1010, 1020, 1021
+ID_MASTER, ID_SHOW = 1010, 1011
 
-ADDR_MASTER = "0xF3000000"   # global cheat switch, bit 0
-ADDR_COUNT = "0xF3000004"    # {bytes, cheats, codes} parsed, read only
-ADDR_DEBUG = "0xF3000008"    # what happened after parsing, read only
+ADDR_MASTER = "0xF3000000"   # bit 0 global cheat switch, bit 1 show the list
 
 TARGETS = (("gbc", "budude2.GBC"), ("gb", "budude2.GB"))
 
@@ -44,19 +42,19 @@ def cheat_entries() -> list[dict]:
         "enabled": True, "persist": False, "address": ADDR_MASTER,
         "mask": "0xFFFFFFFE", "defaultval": "0x00000001", "value": "0x00000001",
     }, {
-        # Short label on purpose: the Pocket gives a menu row one line, and a
-        # long name crowds out the very number the row exists to show.
-        "name": "CL:", "id": ID_READOUT, "type": "number_u32",
-        "enabled": True, "address": ADDR_COUNT,
-    }, {
-        # {pokes, override hits, mask[7:0], master, 0, entries in CODES}
-        "name": "CD:", "id": ID_DEBUG, "type": "number_u32",
-        "enabled": True, "address": ADDR_DEBUG,
+        # Draws the names of the enabled cheats over the game picture. That is
+        # the only place a core can put text: APF fixes every menu label in
+        # this file at build time, so a menu row can never say more than
+        # "Cheat 1". Not persisted either, and off by default, because it
+        # covers the game.
+        "name": "Show cheats", "id": ID_SHOW, "type": "check",
+        "enabled": True, "persist": False, "address": ADDR_MASTER,
+        "mask": "0xFFFFFFFD", "defaultval": "0x00000000", "value": "0x00000002",
     }]
 
 
 def is_cheat_entry(x: dict) -> bool:
-    return x.get("id", 0) in (ID_MASTER, ID_READOUT, ID_DEBUG) or \
+    return x.get("id", 0) in (ID_MASTER, ID_SHOW) or \
         1011 <= x.get("id", 0) <= 1030      # older per-cheat toggles and page
 
 
@@ -95,7 +93,7 @@ def main() -> int:
     if stale:
         print("out of date, run tools/cheats/genmenu.py:", *stale, sep="\n  ")
         return 1
-    print("menu: global switch + parsed readout + diagnostics; "
+    print("menu: global switch + on screen list; "
           "per-cheat state comes from the .cht")
     return 0
 

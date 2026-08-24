@@ -72,9 +72,11 @@ sim-image:
 # e.g. `make test ARGS="-n 100"`.
 test:
 	$(SIMRUN) python3 tools/cheats/genmenu.py --check
+	$(SIMRUN) python3 tools/cheats/genfont.py --check
 	$(SIMRUN) python3 tools/cheats/ggdecode.py --test
 	$(SIMRUN) sh -c 'mkdir -p build/sim && iverilog -g2012 -o build/sim/tb_codes tools/sim/tb_codes.sv src/gb/cheatcodes.sv 2>/dev/null && vvp build/sim/tb_codes'
 	$(SIMRUN) sh -c 'mkdir -p build/sim && iverilog -g2012 -o build/sim/tb_fast tools/sim/tb_cheat_loader_fast.sv src/gb/cheat_loader.sv && vvp build/sim/tb_fast'
 	$(SIMRUN) python3 tools/sim/run.py $(ARGS)
 	$(SIMRUN) python3 tools/sim/run_fixtures.py
 	$(SIMRUN) python3 tools/sim/run_e2e.py
+	$(SIMRUN) python3 tools/sim/run_osd.py

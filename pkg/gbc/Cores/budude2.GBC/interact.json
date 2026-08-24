@@ -88,18 +88,15 @@
         "value": "0x00000001"
       },
       {
-        "name": "CL:",
-        "id": 1020,
-        "type": "number_u32",
+        "name": "Show cheats",
+        "id": 1011,
+        "type": "check",
         "enabled": true,
-        "address": "0xF3000004"
-      },
-      {
-        "name": "CD:",
-        "id": 1021,
-        "type": "number_u32",
-        "enabled": true,
-        "address": "0xF3000008"
+        "persist": false,
+        "address": "0xF3000000",
+        "mask": "0xFFFFFFFD",
+        "defaultval": "0x00000000",
+        "value": "0x00000002"
       }
     ],
     "messages": []

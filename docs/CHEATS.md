@@ -29,19 +29,19 @@ Works with ROMs on the SD card and with a physical cartridge.
    Watch the extension. Windows hides known ones, so a file saved from Notepad
    as `Zelda.gbc.cht` may really be `Zelda.gbc.cht.txt`: turn on "File name
    extensions" in Explorer's View tab. On macOS, TextEdit writes rich text
-   unless you pick Format > Make Plain Text first. **CL:** in the core menu
-   reads zero when the file was not found, which is what either mistake looks
-   like.
+   unless you pick Format > Make Plain Text first. **Show cheats** says NO
+   CHEATS LOADED when the file was never found, which is what either mistake
+   looks like.
 
    The UI side lives in a separate repo,
    [openfpga-GBC-cheats-ui](https://github.com/kroy-the-rabbit/openfpga-GBC-cheats-ui):
    a desktop picker that matches ROMs on the card against the cheat database and
    writes these files. Nothing here depends on it, and none of it lives here.
 
-2. Load the game, open the core menu and check **CL:**: it shows how many
-   bytes, cheats and codes were parsed, so a file that failed to load is
-   obvious. The label is terse because a Pocket menu row is one line wide and
-   the number is the part worth reading.
+2. Load the game, open the core menu and tick **Show cheats**. The names of the
+   cheats that are on appear over the picture, above a count of what was parsed
+   and whether this game came from a cartridge or a file. A file that never
+   loaded says NO CHEATS LOADED.
 3. **Cheats enabled** turns the whole lot on and off.
 
 Nothing has to be converted or precompiled. The core parses the ASCII itself.
@@ -151,8 +151,45 @@ same browser is the fallback if automatic naming ever does not pick a file up.
 |---|---|---|
 | Load Cheats | data slot 7 | file browser, `.cht` / `.txt` |
 | Cheats enabled | `0xF3000000` bit 0 | global switch, on at every launch, deliberately not persisted |
-| CD: | `0xF3000008` | `{pokes[7:0], override hits[7:0], enable mask[7:0], master, 0, entries[5:0]}`, read only. Everything after parsing: how many codes reached the code store, whether the file's enable flags survived, and which half of the engine is doing anything. Both counters saturate at 255; only whether they move matters. |
-| CL: | `0xF3000004` | `{bytes[19:0], cheats[5:0], codes[5:0]}`, read only, shown as hex. `0x170109` is 368 bytes received, 4 cheats, 9 codes. Byte counts are always a multiple of four: APF only sends whole 32-bit words, so a 365-byte file arrives as 368. A byte count of 0 means the slot never loaded, which separates an APF/data.json problem from a parsing one. |
+| Show cheats | `0xF3000000` bit 1 | draws the names of the enabled cheats over the picture, off at every launch, not persisted |
+
+There were two hex readouts here, `CL:` and `CD:`, packing byte, cheat and code
+counts into a number you decoded by hand. The overlay says the same things in
+words and names the cheats as well, so they are gone. The bridge addresses they
+read, `0xF3000004` and `0xF3000008`, still carry those counters for anyone
+debugging over the bridge.
+
+### The list on screen
+
+```
+ 5 CHEATS  6 CODES
+ROM FILE
+INFINITE HEALTH
+999 RUPEES
+INFINITE BOMBS
+INFINITE MAGIC POWDE
+MAX SEASHELLS
+```
+
+This is the one place a core can put text. APF fixes every menu label in
+`interact.json` at build time and gives a core no way to hand the menu a string,
+which is why per-cheat menu rows could only ever read "Cheat 1", "Cheat 2". The
+game picture is different: the core owns every pixel of it.
+
+The screen is 160x144 and the font cell is 8x8, so the grid is 20 characters by
+18 rows: two header rows and up to 16 titles. Titles are cut at 20 characters,
+uppercased, and anything outside the font is drawn as a space. Text is white on
+the game dimmed to a quarter, so it stays readable over a bright picture.
+
+The second header row says CARTRIDGE or ROM FILE, because the two get their
+cheat file by different routes: a file next to the ROM is picked up by name, a
+cartridge session has to be pointed at one with **Load Cheats**. A file meant
+for the other one is otherwise invisible.
+
+`tools/sim/run_osd.py` renders a frame in simulation, reads the glyphs back out
+of the bitmap and compares them against the titles in the file, so a shifted
+column or a wrong character fails the build rather than being noticed later on
+a handheld.
 
 `tools/cheats/genmenu.py` writes these entries into both packages'
 `interact.json`, and `make test` fails if they are out of date.
@@ -184,13 +221,14 @@ look identical to a broken cheat engine from the outside:
   [openfpga-GBC-cheats-ui](https://github.com/kroy-the-rabbit/openfpga-GBC-cheats-ui),
   has a `checkrom` tool that does this for a whole file.
 
-Then read **CL:**; it is packed `{bytes, cheats, codes}`.
+Then tick **Show cheats** and read the top of the screen.
 
-| Reading | Meaning |
+| On screen | Meaning |
 |---|---|
-| all zero | slot 7 never loaded: check the filename is `<rom filename>.cht`, or browse with **Load Cheats** |
-| bytes > 0, cheats 0 | the file arrived but nothing decoded: placeholder `XX` codes, or a format the parser rejects |
-| cheats > 0, no effect | check **Cheats enabled**, and that the codes match this exact game revision |
+| NO CHEATS LOADED | slot 7 never loaded: check the filename is `<rom filename>.cht`, or browse with **Load Cheats** |
+| a count, but no names | the file arrived and nothing decoded: placeholder `XX` codes, or a format the parser rejects |
+| the names you expected | the file is fine. Check **Cheats enabled**, and that the codes match this exact game revision |
+| CARTRIDGE when you meant to play a file, or the reverse | the cheats belong to the other one |
 
 **Cheats enabled** is not persisted, and that is on purpose. APF keys saved
 values by widget id, so a value written by one build can be restored into a
@@ -209,6 +247,10 @@ data slot 7 -> data_loader (byte stream at 0x5xxxxxxx)
                  |
                  +- Game Genie -> gb.v  .DI (genie_ovr ? genie_data : cpu_di)
                  +- GameShark  -> cheat_poker.sv -> WRAM / HRAM port B
+
+cheat_loader.sv -> cheat_titles.sv (the `_desc` text, on clk_sys)
+                                 -> cheat_osd.sv (reads it on clk_vid)
+                                 -> core_top.sv video mux
 ```
 
 `cheat_loader.sv` only reads the value of keys ending in `_code`. It never

@@ -482,6 +482,7 @@ reg [31:0] run_settings  = 32'h0;
 //! `enable` key), which cheat_loader turns into a per-group mask. The only
 //! menu control is this global switch.
 reg cheats_master = 1'b1;
+reg cheats_osd    = 1'b0;   //! Show the enabled cheats over the picture
 logic [31:0] int_bridge_read_data;
 
 always_ff @(posedge clk_74a) begin
@@ -492,7 +493,8 @@ always_ff @(posedge clk_74a) begin
       32'hF0000000: begin /*         RESET ONLY          */ reset_timer <= 1; end //! Reset Core Command
       32'hF1000000: begin boot_settings  <= bridge_wr_data; reset_timer <= 1; end //! System Settings
       32'hF2000000: begin run_settings   <= bridge_wr_data;                   end //! Runtime settings
-      32'hF3000000: begin cheats_master  <= bridge_wr_data[0];                end //! Cheats enabled
+      32'hF3000000: begin cheats_master  <= bridge_wr_data[0];
+                         cheats_osd    <= bridge_wr_data[1];                end //! Cheats enabled, show list
     endcase
   end
 
@@ -659,7 +661,82 @@ cheat_loader #(
   .enable_mask ( cheat_enable ),
   .code_count  ( cheat_codes  ),
   .group_count ( cheat_groups ),
-  .byte_count  ( cheat_bytes  )
+  .byte_count  ( cheat_bytes  ),
+  .desc_wr     ( desc_wr      ),
+  .desc_group  ( desc_group   ),
+  .desc_col    ( desc_col     ),
+  .desc_char   ( desc_char    ),
+  .desc_end    ( desc_end     )
+);
+
+// ---------------------------------------------------------------- overlay --
+// The names of the enabled cheats, drawn over the game picture. APF fixes menu
+// labels at build time, so the menu can never name a cheat; the picture can.
+wire       desc_wr, desc_end;
+wire [4:0] desc_group, desc_col;
+wire [5:0] desc_char;
+
+wire [4:0] osd_group, osd_col, osd_len;
+wire [5:0] osd_char, osd_font_ch;
+wire [2:0] osd_font_row;
+wire [7:0] osd_font_bits;
+wire       osd_active, osd_ink;
+
+cheat_titles titles (
+  .wr_clk    ( clk_sys    ),
+  .wr_reset  ( gg_reset   ),
+  .wr_en     ( desc_wr    ),
+  .wr_group  ( desc_group ),
+  .wr_col    ( desc_col   ),
+  .wr_char   ( desc_char  ),
+  .wr_end    ( desc_end   ),
+  .rd_clk    ( clk_vid    ),
+  .rd_group  ( osd_group  ),
+  .rd_col    ( osd_col    ),
+  .rd_char   ( osd_char   ),
+  .rd_len    ( osd_len    )
+);
+
+cheat_font font (
+  .ch   ( osd_font_ch   ),
+  .row  ( osd_font_row  ),
+  .bits ( osd_font_bits )
+);
+
+// The mask and the counters are written on clk_sys and read on clk_vid. They
+// change only while a file loads, and the overlay is cosmetic, so this is a
+// plain two stage register rather than a synchroniser per bit: the worst a
+// skewed sample can do is draw one frame with a stale count.
+reg [31:0] osd_mask_ss, osd_mask_s;
+reg [5:0]  osd_groups_ss, osd_groups_s, osd_codes_ss, osd_codes_s;
+reg        osd_show_ss, osd_show_s, osd_cart_ss, osd_cart_s;
+always_ff @(posedge clk_vid) begin
+  osd_mask_ss   <= cheat_enable_live; osd_mask_s   <= osd_mask_ss;
+  osd_groups_ss <= cheat_groups;      osd_groups_s <= osd_groups_ss;
+  osd_codes_ss  <= cheat_codes;       osd_codes_s  <= osd_codes_ss;
+  osd_show_ss   <= cheats_osd;        osd_show_s   <= osd_show_ss;
+  osd_cart_ss   <= osnotify_adapter_play; osd_cart_s <= osd_cart_ss;
+end
+
+cheat_osd osd (
+  .clk         ( clk_vid     ),
+  .reset       ( ~reset_n_s  ),
+  .show        ( osd_show_s  ),
+  .cart_mode   ( osd_cart_s  ),
+  .de          ( de          ),
+  .v_blank     ( v_blank     ),
+  .enable_mask ( osd_mask_s  ),
+  .group_count ( osd_groups_s ),
+  .code_count  ( osd_codes_s ),
+  .title_group ( osd_group   ),
+  .title_col   ( osd_col     ),
+  .title_char  ( osd_char    ),
+  .title_len   ( osd_len     ),
+  .font_ch     ( osd_font_ch ),
+  .font_row    ( osd_font_row ),
+  .font_bits   ( osd_font_bits ),
+  .active      ( osd_active  ),
+  .ink         ( osd_ink     )
 );
 
 // The enable mask is published only once a file has finished loading. It is
@@ -1367,6 +1444,10 @@ reg de_prev;
 
 wire de = ~(h_blank || v_blank);
 
+wire [23:0] osd_dim = {2'b0, video_rgb_gb[23:18],
+                       2'b0, video_rgb_gb[15:10],
+                       2'b0, video_rgb_gb[7:2]};
+
 always_ff @(posedge clk_vid) begin
   video_hs_reg  <= 0;
   video_de_reg  <= 0;
@@ -1375,7 +1456,11 @@ always_ff @(posedge clk_vid) begin
   if (de) begin
     video_de_reg  <= 1;
 
-    video_rgb_reg <= video_rgb_gb;
+    // The overlay replaces the picture where it draws: white for a letter,
+    // the game at a quarter brightness behind it so the text stays readable
+    // over anything.
+    video_rgb_reg <= osd_active ? (osd_ink ? 24'hFFFFFF : osd_dim)
+                                : video_rgb_gb;
   end else if (de_prev && ~de) begin
     video_rgb_reg <= 24'h0;
   end
