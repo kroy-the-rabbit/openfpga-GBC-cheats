@@ -200,6 +200,14 @@ cheat file by different routes: a file next to the ROM is picked up by name, a
 cartridge session has to be pointed at one with **Load Cheats**. A file meant
 for the other one is otherwise invisible.
 
+Confirmed on hardware: the list draws over a running game on a real Pocket, and
+the switch turns it on and off. That switch has an address of its own for a
+reason. It first shipped sharing 0xF3000000 with **Cheats enabled**, one bit
+each, and on hardware the two fought: toggling cheats cleared the overlay and
+the overlay checkbox did nothing, so the list sat over the game with no way to
+clear it. Simulation never saw it, because the testbench drives the switch
+directly and never crosses the APF menu.
+
 `tools/sim/run_osd.py` renders a frame in simulation, reads the glyphs back out
 of the bitmap and compares them against the titles in the file, so a shifted
 column or a wrong character fails the build rather than being noticed later on
