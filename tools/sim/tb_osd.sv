@@ -17,7 +17,7 @@
 
 module tb_osd;
 
-  localparam COLS = 20, ROWS = 18;
+  localparam COLS = 26, ROWS = 18;
   localparam H_ACTIVE = 160, H_BLANK = 60;
   localparam V_ACTIVE = 144, V_BLANK = 10;
 

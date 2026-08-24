@@ -30,8 +30,9 @@ SOURCES = ["tools/sim/tb_osd.sv", "src/gb/cheat_loader.sv",
            "src/gb/cheat_titles.sv", "src/gb/cheat_font.sv",
            "src/gb/cheat_osd.sv"]
 
-COLS, ROWS, CELL = 20, 18, 8
-TITLE_W = 20
+COLS, ROWS = 26, 18
+CELL_W, CELL_H = 6, 8
+TITLE_W = 26
 
 
 def compile_tb() -> None:
@@ -51,8 +52,8 @@ def render(path: str, cart: bool) -> tuple[list[str], str]:
     out = subprocess.run([TB, f"+f={path}", f"+cart={int(cart)}"],
                          capture_output=True, text=True, check=True).stdout
     bitmap = [line[4:] for line in out.splitlines() if line.startswith("PIX ")]
-    if len(bitmap) != ROWS * CELL:
-        raise SystemExit(f"{path}: got {len(bitmap)} scanlines, want {ROWS * CELL}")
+    if len(bitmap) != ROWS * CELL_H:
+        raise SystemExit(f"{path}: got {len(bitmap)} scanlines, want {ROWS * CELL_H}")
     return bitmap, out
 
 
@@ -61,12 +62,15 @@ def read_text(bitmap: list[str], table: dict[tuple, str]) -> list[str]:
     for r in range(ROWS):
         chars = []
         for c in range(COLS):
+            # Six columns are read into the top of an eight bit row: the glyph
+            # is five wide and the font byte is zero below it, so the key still
+            # matches genfont exactly.
             cell = []
-            for y in range(CELL):
-                row = bitmap[r * CELL + y]
+            for y in range(CELL_H):
+                row = bitmap[r * CELL_H + y]
                 bits = 0
-                for x in range(CELL):
-                    px = c * CELL + x
+                for x in range(CELL_W):
+                    px = c * CELL_W + x
                     if px < len(row) and row[px] == "#":
                         bits |= 0x80 >> x
                 cell.append(bits)

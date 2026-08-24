@@ -14,7 +14,7 @@
 //     INFINITE BOMBS
 //     ...
 //
-// The screen is 160x144 and the font cell is 8x8, so the grid is 20 columns by
+// The screen is 160x144 and the cell is 6x8, so the grid is 26 columns by
 // 18 rows: two header rows and up to 16 titles. The second header row says
 // whether the game is a cartridge or a file, because the two get their cheats
 // by different routes and a wrong file looks the same as no file.
@@ -31,7 +31,12 @@
 // the 22 cycles this needs.
 
 module cheat_osd #(
-	parameter COLS = 20,             // 160 / 8
+	// The glyph is 5 wide in an 8 wide byte, so a 6 pixel cell still leaves a
+	// clear column between letters and fits 26 of them across a 160 pixel
+	// screen instead of 20. Rows stay at 8: the gap under a glyph is what keeps
+	// lines apart, and there is no shortage of height.
+	parameter CELL = 6,
+	parameter COLS = 26,             // 160 / 6, rounded down
 	parameter ROWS = 18              // 144 / 8
 ) (
 	input  wire        clk,          // video clock
@@ -83,8 +88,23 @@ module cheat_osd #(
 
 	wire [4:0] text_row  = py[7:3];
 	wire [2:0] glyph_row = py[2:0];
-	wire [4:0] text_col  = px[7:3];
-	wire [2:0] pixel_col = px[2:0];
+	// 6 does not divide a bit slice, so the column is counted rather than
+	// sliced out of px. Both follow px exactly: reset while blanking, one step
+	// per active pixel, so they name the pixel being computed just as px does.
+	reg [4:0] text_col;
+	reg [2:0] pixel_col;
+
+	always_ff @(posedge clk) begin
+		if (reset || !de) begin
+			text_col  <= 5'd0;
+			pixel_col <= 3'd0;
+		end else if (pixel_col == CELL[2:0] - 3'd1) begin
+			pixel_col <= 3'd0;
+			text_col  <= text_col + 5'd1;
+		end else begin
+			pixel_col <= pixel_col + 3'd1;
+		end
+	end
 
 	// ---------------------------------------------------- display list
 	// Which groups are on, in order, rebuilt every vertical blank.
@@ -271,6 +291,8 @@ module cheat_osd #(
 	assign font_row = glyph_row;
 
 	// ------------------------------------------------------------- output
+	// The sixth pixel of a cell reads bit 2, which is below the 5 wide glyph
+	// and therefore always clear: the gap between letters needs no special case.
 	wire [7:0] bits = line_bits[text_col];
 	assign active = show && de && row_used && (text_col < COLS[4:0]);
 	assign ink    = active && bits[3'd7 - pixel_col];

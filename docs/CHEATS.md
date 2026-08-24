@@ -186,10 +186,14 @@ This is the one place a core can put text. APF fixes every menu label in
 which is why per-cheat menu rows could only ever read "Cheat 1", "Cheat 2". The
 game picture is different: the core owns every pixel of it.
 
-The screen is 160x144 and the font cell is 8x8, so the grid is 20 characters by
-18 rows: two header rows and up to 16 titles. Titles are cut at 20 characters,
-uppercased, and anything outside the font is drawn as a space. Text is white on
-the game dimmed to a quarter, so it stays readable over a bright picture.
+The screen is 160x144 and the glyph is 5x7, drawn in a cell 6 wide and 8 tall,
+so the grid is 26 characters by 18 rows: two header rows and up to 16 titles.
+Six rather than eight because the glyph is only five wide, so a six pixel cell
+still leaves a clear column between letters and fits a quarter more of them:
+"INFINITE MAGIC POWDER" is 21 characters and used to arrive as "INFINITE MAGIC
+POWDE". Titles are cut at 26, uppercased, and anything outside the font is
+drawn as a space. Text is white on the game dimmed to a quarter, so it stays
+readable over a bright picture.
 
 The second header row says CARTRIDGE or ROM FILE, because the two get their
 cheat file by different routes: a file next to the ROM is picked up by name, a

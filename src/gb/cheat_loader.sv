@@ -78,7 +78,7 @@ module cheat_loader #(
     output reg          desc_end     // desc_col is now the length
 );
 
-  localparam TITLE_W = 20;         // characters, one screen line at 8 px
+  localparam TITLE_W = 26;         // characters, one screen line at 6 px
 
   // Fold to the font's range: uppercase, and anything outside it is a space.
   function automatic [5:0] font_index(input [7:0] c);
