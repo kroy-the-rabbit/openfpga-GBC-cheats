@@ -171,15 +171,12 @@ debugging over the bridge.
 
 ### The list on screen
 
-```
- 5 CHEATS  6 CODES
-ROM FILE
-INFINITE HEALTH
-999 RUPEES
-INFINITE BOMBS
-INFINITE MAGIC POWDE
-MAX SEASHELLS
-```
+Both taken on a real Pocket, shown at 3x. A ROM loaded from the card, and a
+cartridge in the slot:
+
+![Four cheats listed over a game loaded from the SD card, headed "4 CHEATS 4 CODES" and "ROM FILE"](images/overlay-rom-file.png)
+
+![Ten cheats listed over a game running from a cartridge, headed "10 CHEATS 11 CODES" and "CARTRIDGE"](images/overlay-cartridge.png)
 
 This is the one place a core can put text. APF fixes every menu label in
 `interact.json` at build time and gives a core no way to hand the menu a string,

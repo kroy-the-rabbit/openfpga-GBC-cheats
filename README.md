@@ -7,6 +7,12 @@ cheat engine: three new modules in `src/gb/`, the hooks that reach them in
 `core_top.sv` and `gb.v`, and a data slot plus two menu entries in `pkg/`. See
 [docs/CHEATS.md](docs/CHEATS.md).
 
+![The cheat overlay on a real Pocket: a header reading "10 CHEATS 11 CODES" and "CARTRIDGE", then the name of every enabled cheat drawn over the running game](docs/images/overlay-cartridge.png)
+
+The core menu has no room to name cheats, so the names are drawn over the game
+instead. The header says how many are on and whether the game came from a
+cartridge or a file on the card.
+
 Everything outside `src/` and `pkg/` is new here and none of it ships: a
 containerised Quartus build, a simulation harness, docs and example cheat files.
 Builds here also differ from upstream's in one way that is not the cheats, the
