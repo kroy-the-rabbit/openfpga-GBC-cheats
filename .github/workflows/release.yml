@@ -91,4 +91,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-        run: gh release upload "${{ github.ref_name }}" dist/*/*.zip --clobber
+        # upload attaches to a release, it does not make one: a tag with no
+        # release behind it fails here, which is exactly what happened the
+        # first time a tag was pushed without one having been made by hand.
+        run: |
+          tag="${{ github.ref_name }}"
+          gh release view "$tag" >/dev/null 2>&1 \
+            || gh release create "$tag" --title "$tag" --notes "See docs/CHEATS.md. Install steps and the cheat file format are in the README."
+          gh release upload "$tag" dist/*/*.zip --clobber
