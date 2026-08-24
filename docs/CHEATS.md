@@ -34,7 +34,7 @@ Works with ROMs on the SD card and with a physical cartridge.
    like.
 
    The UI side lives in a separate repo,
-   [pocket-gbc-cheats-ui](https://github.com/kroy-the-rabbit/pocket-gbc-cheats-ui):
+   [openfpga-GBC-cheats-ui](https://github.com/kroy-the-rabbit/openfpga-GBC-cheats-ui):
    a desktop picker that matches ROMs on the card against the cheat database and
    writes these files. Nothing here depends on it, and none of it lives here.
 
