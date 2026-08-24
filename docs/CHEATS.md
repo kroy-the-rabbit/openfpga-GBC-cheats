@@ -26,6 +26,13 @@ Works with ROMs on the SD card and with a physical cartridge.
 
    Only the `_code` line is required; the sections below are the full format.
 
+   Watch the extension. Windows hides known ones, so a file saved from Notepad
+   as `Zelda.gbc.cht` may really be `Zelda.gbc.cht.txt`: turn on "File name
+   extensions" in Explorer's View tab. On macOS, TextEdit writes rich text
+   unless you pick Format > Make Plain Text first. **CL:** in the core menu
+   reads zero when the file was not found, which is what either mistake looks
+   like.
+
    The UI side lives in a separate repo,
    [pocket-gbc-cheats-ui](https://github.com/kroy-the-rabbit/pocket-gbc-cheats-ui):
    a desktop picker that matches ROMs on the card against the cheat database and

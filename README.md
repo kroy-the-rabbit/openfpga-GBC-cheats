@@ -16,9 +16,14 @@ for repeatable timing closure; `tools/podman/build-core.sh` says why.
 Please report any issues encountered to this repo. Issues will be upstreamed as necessary.
 
 ## Installation
-To install the core, copy the `Assets`, `Cores`, and `Platform` folders over to the root of your SD card. Please note that Finder on macOS automatically _replaces_ folders, rather than merging them like Windows does, so you have to manually merge the folders.
 
-Place the GBC bios in `/Assets/gbc/common` named "gbc_bios.bin", the GB bios in `/Assets/gb/common` named "gb_bios.bin", and the SGB bios in `/Assets/gb/common` named "sgb_boot.bin".
+Prebuilt cores are on the [Releases](../../releases) page: download the zip for
+the core you want and unzip it. Nothing below needs a terminal; building from
+source is only for changing something.
+
+To install the core, copy the `Assets`, `Cores`, and `Platforms` folders over to the root of your SD card. Please note that Finder on macOS automatically _replaces_ folders, rather than merging them like Windows does, so you have to manually merge the folders.
+
+Place the GBC bios in `/Assets/gbc/common` named "gbc_bios.bin", the GB bios in `/Assets/gb/common` named "gb_bios.bin", and the SGB bios in `/Assets/gb/common` named "sgb_boot.bin". These are not in the zip and the core will not run without them.
 
 
 ## Usage
