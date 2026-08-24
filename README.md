@@ -2,8 +2,16 @@
 Ported from the original core developed at https://github.com/MiSTer-devel/Gameboy_MiSTer
 
 This repository is [budude2/openfpga-GBC](https://github.com/budude2/openfpga-GBC)
-with cheat support added, and nothing else changed. See
+with cheat support added. What ships on the card is upstream's apart from the
+cheat engine: three new modules in `src/gb/`, the hooks that reach them in
+`core_top.sv` and `gb.v`, and a data slot plus two menu entries in `pkg/`. See
 [docs/CHEATS.md](docs/CHEATS.md).
+
+Everything outside `src/` and `pkg/` is new here and none of it ships: a
+containerised Quartus build, a simulation harness, docs and example cheat files.
+Builds here also differ from upstream's in one way that is not the cheats, the
+fitter running STANDARD FIT with hold-time optimisation rather than FAST FIT,
+for repeatable timing closure; `tools/podman/build-core.sh` says why.
 
 Please report any issues encountered to this repo. Issues will be upstreamed as necessary.
 
