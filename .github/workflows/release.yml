@@ -102,6 +102,7 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           path: dist
@@ -114,6 +115,16 @@ jobs:
         # first time a tag was pushed without one having been made by hand.
         run: |
           tag="${{ github.ref_name }}"
+
+          # Bare filenames, so `sha256sum -c` works in whatever directory a
+          # browser downloaded the zips into.
+          find dist -name '*.zip' -exec sha256sum {} + \
+            | sed 's#dist/[^/]*/##' | sort -k2 > dist/SHA256SUMS
+
+          # The notes say which asset to download. GitHub attaches "Source code"
+          # archives to every release and those contain no bitstream, so a core
+          # installed from one is listed by the Pocket and cannot start.
           gh release view "$tag" >/dev/null 2>&1 \
-            || gh release create "$tag" --title "$tag" --notes "See docs/CHEATS.md. Install steps and the cheat file format are in the README."
-          gh release upload "$tag" dist/*/*.zip --clobber
+            || gh release create "$tag" --title "$tag" \
+                 --notes-file .github/release-notes.md
+          gh release upload "$tag" dist/*/*.zip dist/SHA256SUMS --clobber
