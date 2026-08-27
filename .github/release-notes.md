@@ -27,5 +27,5 @@ No BIOS is included and the core will not start without one:
 sha256sum -c SHA256SUMS --ignore-missing
 ```
 
-Cheats are documented in [docs/CHEATS.md](https://github.com/kroy-the-rabbit/openfpga-GBC-cheats/blob/cheats/docs/CHEATS.md), and the README has
+Cheats are documented in [docs/CHEATS.md](https://github.com/kroy-the-rabbit/openfpga-GBC-cheats/blob/main/docs/CHEATS.md), and the README has
 the rest.

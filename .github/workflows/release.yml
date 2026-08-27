@@ -21,9 +21,42 @@ env:
   QVER: 25.1std.0
   QBUILD: "1129"
   QROOT: /opt/intelFPGA_lite/25.1std
+  RELEASE_BRANCH: main
 
 jobs:
+  # A tag fires this workflow wherever it was made: `on: push: tags` has no
+  # branch filter and GitHub offers none, so tagging a scratch branch would
+  # otherwise publish it as a release. This proves the tagged commit is on the
+  # release branch before anything else runs.
+  #
+  # Its own job rather than a step inside the build, so the refusal costs
+  # seconds instead of failing after a Quartus install and two fits.
+  #
+  # The branch is named in env rather than written into the check, because it
+  # has moved: the work lived on cheats while master mirrored upstream, and
+  # both are now main.
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      # Full history: the ancestry test needs the branch and the tag in the
+      # same clone, and a shallow one has neither.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Releases come from ${{ env.RELEASE_BRANCH }}
+        run: |
+          git fetch --no-tags origin "$RELEASE_BRANCH"
+          if git merge-base --is-ancestor "$GITHUB_SHA" FETCH_HEAD; then
+            echo "$GITHUB_REF_NAME is on $RELEASE_BRANCH"
+          else
+            echo "::error::${GITHUB_REF_NAME} is not on ${RELEASE_BRANCH}." \
+                 "Releases are built from that branch only; merge it first" \
+                 "and tag the merge."
+            exit 1
+          fi
+
   build:
+    needs: guard
     runs-on: ubuntu-latest
     timeout-minutes: 300
     # 22.04: Quartus wants libtinfo5 and libncurses5, which 24.04 dropped.

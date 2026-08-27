@@ -9,7 +9,7 @@ name: test
 
 on:
   push:
-    branches: [cheats]
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
