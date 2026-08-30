@@ -1,0 +1,24 @@
+# Build harness outputs (see tools/podman/README.md)
+/build/
+/tools/podman/dl/
+
+# Test corpus, fetched by tools/cheats/init-db.sh
+/external/
+
+# Quartus scratch, in case someone builds in-tree
+src/output_files/
+src/db/
+src/incremental_db/
+src/*.qws
+src/*.rpt
+src/*.summary
+src/*.smsg
+src/*.done
+src/*.jdi
+src/*.sld
+src/*.sof
+src/*.rbf
+src/*.pof
+src/apf/build_id.v
+__pycache__/
+*.pyc

@@ -1,0 +1,17 @@
+cheats = 4
+
+cheat0_desc = "Infinite Health"
+cheat0_code = "017FA2C6"
+cheat0_enable = true
+
+cheat1_desc = "999 Rupees"
+cheat1_code = "0199A5C6+0109A6C6"
+cheat1_enable = true
+
+cheat2_desc = "Infinite Bombs"
+cheat2_code = "0109AAC6"
+cheat2_enable = true
+
+cheat3_desc = "Infinite Seeds"
+cheat3_code = "019AB5C6+019AB7C6+019AB8C6+019AB9C6"
+cheat3_enable = true

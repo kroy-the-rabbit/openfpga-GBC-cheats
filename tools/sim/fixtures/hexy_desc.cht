@@ -1,0 +1,9 @@
+cheats = 2
+
+cheat0_desc = "Facade of the Decade, Beaded"
+cheat0_code = "0132B0C6"
+cheat0_enable = true
+
+cheat1_desc = "Disabled one"
+cheat1_code = "0199A5C6"
+cheat1_enable = false

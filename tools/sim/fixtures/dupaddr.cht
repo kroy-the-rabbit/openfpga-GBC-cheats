@@ -1,0 +1,17 @@
+cheats = 4
+
+cheat0_desc = "Enabled poke at C6AA"
+cheat0_code = "0140AAC6"
+cheat0_enable = true
+
+cheat1_desc = "Disabled alternative at the same address"
+cheat1_code = "010CAAC6"
+cheat1_enable = false
+
+cheat2_desc = "Bank A patch at 0246"
+cheat2_code = "00246FE69"
+cheat2_enable = true
+
+cheat3_desc = "Bank B patch at the same address, disabled"
+cheat3_code = "00246F060"
+cheat3_enable = false

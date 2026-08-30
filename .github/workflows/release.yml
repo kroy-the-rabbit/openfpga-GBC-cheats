@@ -1,0 +1,172 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Builds both cores with Quartus and attaches the zips to the release for the
+# tag that triggered it.
+#
+# Quartus Prime Lite needs no licence and no account, so this runs on a stock
+# runner: the same unattended install and the same build script the local
+# Podman harness uses, so a CI build and a local one are the same build. The
+# installers are 3.4 GB and are deleted once installed rather than cached,
+# because runner disk is tighter than runner bandwidth.
+#
+# The build fails if the design misses timing. Quartus exits 0 on negative
+# slack, so tools/podman/report.sh checks worst-case slack itself.
+name: release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+env:
+  QVER: 25.1std.0
+  QBUILD: "1129"
+  QROOT: /opt/intelFPGA_lite/25.1std
+  RELEASE_BRANCH: main
+
+jobs:
+  # A tag fires this workflow wherever it was made: `on: push: tags` has no
+  # branch filter and GitHub offers none, so tagging a scratch branch would
+  # otherwise publish it as a release. This proves the tagged commit is on the
+  # release branch before anything else runs.
+  #
+  # Its own job rather than a step inside the build, so the refusal costs
+  # seconds instead of failing after a Quartus install and two fits.
+  #
+  # The branch is named in env rather than written into the check, because it
+  # has moved: the work lived on cheats while master mirrored upstream, and
+  # both are now main.
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      # Full history: the ancestry test needs the branch and the tag in the
+      # same clone, and a shallow one has neither.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Releases come from ${{ env.RELEASE_BRANCH }}
+        run: |
+          git fetch --no-tags origin "$RELEASE_BRANCH"
+          if git merge-base --is-ancestor "$GITHUB_SHA" FETCH_HEAD; then
+            echo "$GITHUB_REF_NAME is on $RELEASE_BRANCH"
+          else
+            echo "::error::${GITHUB_REF_NAME} is not on ${RELEASE_BRANCH}." \
+                 "Releases are built from that branch only; merge it first" \
+                 "and tag the merge."
+            exit 1
+          fi
+
+  build:
+    needs: guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    # 22.04: Quartus wants libtinfo5 and libncurses5, which 24.04 dropped.
+    container: ubuntu:22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [gbc, gb]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Userland Quartus needs
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            ca-certificates curl locales python3 rsync zip file \
+            libglib2.0-0 libsm6 libice6 libx11-6 libxext6 libxi6 libxrender1 \
+            libxrandr2 libxtst6 libxft2 libxcb1 libfontconfig1 libfreetype6 \
+            libncurses5 libncursesw5 libtinfo5 libstdc++6 libdbus-1-3 \
+            libpng16-16 libbz2-1.0 libssl3 libxcursor1 libxinerama1 libxfixes3
+          locale-gen en_US.UTF-8
+
+      - name: Fetch the installers
+        run: |
+          df -h /
+          tools/podman/fetch-installers.sh
+
+      - name: Install Quartus Lite, Cyclone V only
+        run: |
+          tools/podman/dl/QuartusLiteSetup-${QVER}.${QBUILD}-linux.run \
+            --mode unattended --unattendedmodeui none --accept_eula 1 \
+            --installdir ${QROOT}
+          rm -rf tools/podman/dl "${QROOT}/uninstall" "${QROOT}/logs"
+          ${QROOT}/quartus/bin/quartus_sh --version
+          df -h /
+
+      # The worst hold path in this design is inside the PLL's own output
+      # counter and sits around +0.05 ns on the untouched upstream baseline, so
+      # placement variance alone can tip it a few picoseconds negative: one
+      # build of an unchanged design passes and the next misses by 13 ps. The
+      # fitter seed is the documented answer to that, so a timing miss refits
+      # rather than failing the release. Only a timing miss retries: report.sh
+      # exits 3 for that and nothing else does, so a real error still stops the
+      # build on the first try.
+      - name: Build ${{ matrix.target }}
+        env:
+          LANG: en_US.UTF-8
+          HOME: /tmp
+        run: |
+          export PATH="${QROOT}/quartus/bin:$PATH"
+          export QUARTUS_ROOTDIR="${QROOT}/quartus"
+          for seed in '' 2 3; do
+            [ -n "$seed" ] && echo "::warning::${{ matrix.target }}: timing missed, refitting with seed $seed"
+            set +e
+            REPO="$PWD" GIT_SHA="$(echo "$GITHUB_SHA" | cut -c1-7)" \
+              RELEASE_NAME="${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}" \
+              SEED="$seed" tools/podman/build-core.sh ${{ matrix.target }}
+            rc=$?
+            set -e
+            [ $rc -eq 0 ] && exit 0
+            [ $rc -eq 3 ] || exit $rc
+          done
+          echo "::error::${{ matrix.target }}: missed timing on every seed"
+          exit 3
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: core-${{ matrix.target }}
+          path: build/${{ matrix.target }}/*.zip
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+      - name: Attach the cores to ${{ github.ref_name }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        # upload attaches to a release, it does not make one: a tag with no
+        # release behind it fails here, which is exactly what happened the
+        # first time a tag was pushed without one having been made by hand.
+        run: |
+          tag="${{ github.ref_name }}"
+
+          # Bare filenames, so `sha256sum -c` works in whatever directory a
+          # browser downloaded the zips into.
+          find dist -name '*.zip' -exec sha256sum {} + \
+            | sed 's#dist/[^/]*/##' | sort -k2 > dist/SHA256SUMS
+
+          # The notes say which asset to download. GitHub attaches "Source code"
+          # archives to every release and those contain no bitstream, so a core
+          # installed from one is listed by the Pocket and cannot start.
+          # Alpha, beta, rc and testing tags publish as prereleases. A tag is
+          # just a label and -testing means "cut so one thing can be tried on
+          # hardware", which is the least finished kind of tag here. Without
+          # this every tag lands as a full release and the repository offers a
+          # test build as its latest.
+          case "$tag" in
+            *-alpha*|*-beta*|*-rc*|*-testing*) pre=--prerelease ;;
+            *) pre= ;;
+          esac
+          gh release view "$tag" >/dev/null 2>&1 \
+            || gh release create "$tag" --title "$tag" $pre \
+                 --notes-file .github/release-notes.md
+          gh release upload "$tag" dist/*/*.zip dist/SHA256SUMS --clobber

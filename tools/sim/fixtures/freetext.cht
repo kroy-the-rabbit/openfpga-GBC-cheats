@@ -1,0 +1,7 @@
+cheats = 1
+
+# _code means "Facade"
+
+cheat0_desc = "Real cheat"
+cheat0_code = "0140AAC6"
+cheat0_enable = true

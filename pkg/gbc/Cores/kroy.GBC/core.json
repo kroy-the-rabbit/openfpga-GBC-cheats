@@ -2,12 +2,12 @@
   "core": {
     "magic": "APF_VER_1",
     "metadata": {
-      "platform_ids": ["gb"],
-      "shortname": "GB",
-      "description": "Game Boy",
-      "author": "budude2",
-      "url": "https://github.com/budude2/openfpga-GBC",
-      "version": "1.4.0",
+      "platform_ids": ["gbc"],
+      "shortname": "GBC",
+      "description": "Game Boy Color (cheats)",
+      "author": "kroy",
+      "url": "https://github.com/kroy-the-rabbit/openfpga-GBC-cheats",
+      "version": "0.9999",
       "date_release": "2026-04-12"
     },
     "framework": {
@@ -27,7 +27,7 @@
       {
         "name": "default",
         "id": 0,
-        "filename": "gb.rbf_r"
+        "filename": "gbc.rbf_r"
       }
     ]
   }

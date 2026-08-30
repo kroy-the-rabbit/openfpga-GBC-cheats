@@ -11,15 +11,37 @@
         "value": 1
       },
       {
+        "name": "Cheats enabled",
+        "id": 1010,
+        "type": "check",
+        "enabled": true,
+        "persist": false,
+        "address": "0xF3000000",
+        "mask": "0xFFFFFFFE",
+        "defaultval": "0x00000000",
+        "value": "0x00000001"
+      },
+      {
+        "name": "Show cheats",
+        "id": 1011,
+        "type": "check",
+        "enabled": true,
+        "persist": false,
+        "address": "0xF3000010",
+        "mask": "0xFFFFFFFE",
+        "defaultval": "0x00000000",
+        "value": "0x00000001"
+      },
+      {
         "name": "Enable SGB",
         "id": 1000,
         "type": "check",
         "enabled": true,
         "persist": true,
-        "address":    "0xF1000000",
-        "mask":       "0xFFFFFFFE",
+        "address": "0xF1000000",
+        "mask": "0xFFFFFFFE",
         "defaultval": 0,
-        "value":      1
+        "value": 1
       },
       {
         "name": "Enable Border",
@@ -27,10 +49,10 @@
         "type": "check",
         "persist": true,
         "enabled": true,
-        "address":    "0xF2000000",
-        "mask":       "0xFFFFFFEF",
+        "address": "0xF2000000",
+        "mask": "0xFFFFFFEF",
         "defaultval": "0x00000010",
-        "value":      "0x00000010"
+        "value": "0x00000010"
       },
       {
         "name": "Custom Palette",
@@ -38,13 +60,22 @@
         "type": "list",
         "enabled": true,
         "persist": true,
-        "address":    "0xF2000000",
-        "mask":       "0xFFFFFF9F",
+        "address": "0xF2000000",
+        "mask": "0xFFFFFF9F",
         "defaultval": 1,
         "options": [
-          { "name": "Off",   "value": "0x00" },
-          { "name": "Auto",  "value": "0x20" },
-          { "name": "Force", "value": "0x60" }
+          {
+            "name": "Off",
+            "value": "0x00"
+          },
+          {
+            "name": "Auto",
+            "value": "0x20"
+          },
+          {
+            "name": "Force",
+            "value": "0x60"
+          }
         ]
       },
       {
@@ -53,10 +84,10 @@
         "type": "check",
         "enabled": true,
         "persist": true,
-        "address":    "0xF2000000",
-        "mask":       "0xFFFFFFFE",
+        "address": "0xF2000000",
+        "mask": "0xFFFFFFFE",
         "defaultval": "0x00000001",
-        "value":      "0x00000001"
+        "value": "0x00000001"
       },
       {
         "name": "Enable FF",
@@ -64,10 +95,10 @@
         "type": "check",
         "enabled": true,
         "persist": true,
-        "address":    "0xF2000000",
-        "mask":       "0xFFFFFFF7",
+        "address": "0xF2000000",
+        "mask": "0xFFFFFFF7",
         "defaultval": "0x00000008",
-        "value":      "0x00000008"
+        "value": "0x00000008"
       },
       {
         "name": "Enable FF Sound",
@@ -75,22 +106,21 @@
         "type": "check",
         "enabled": true,
         "persist": true,
-        "address":    "0xF2000000",
+        "address": "0xF2000000",
         "defaultval": 0,
-        "mask":       "0xFFFFFFFB",
-        "value":      "0x00000004"
+        "mask": "0xFFFFFFFB",
+        "value": "0x00000004"
       },
       {
-
         "name": "No Audio Pops",
         "id": 1006,
         "type": "check",
         "enabled": true,
         "persist": true,
-        "address":    "0xF2000000",
-        "mask":       "0xFFFFFF7F",
+        "address": "0xF2000000",
+        "mask": "0xFFFFFF7F",
         "defaultval": "0x00000000",
-        "value":      "0x00000080"
+        "value": "0x00000080"
       }
     ],
     "messages": []

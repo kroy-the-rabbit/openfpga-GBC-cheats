@@ -1,0 +1,48 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# The simulation suite, on every push. Icarus Verilog and Python only: no
+# Quartus, no container build, about two minutes.
+#
+# tools/sim/run.py is not here. It diffs the RTL against the reference model
+# over a corpus of real .cht files, and that corpus is third-party content this
+# repo does not carry; run it locally with `make test CHT_DB=/path/to/cht`.
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  sim:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Icarus Verilog
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends iverilog
+
+      - name: Menu entries match the RTL
+        run: python3 tools/cheats/genmenu.py --check
+
+      - name: Game Genie decoder self-test
+        run: python3 tools/cheats/ggdecode.py --test
+
+      - name: CODES testbench
+        run: |
+          mkdir -p build/sim
+          iverilog -g2012 -o build/sim/tb_codes tools/sim/tb_codes.sv src/gb/cheatcodes.sv 2>/dev/null
+          vvp build/sim/tb_codes
+
+      - name: Loader at one byte per cycle
+        run: |
+          iverilog -g2012 -o build/sim/tb_fast tools/sim/tb_cheat_loader_fast.sv src/gb/cheat_loader.sv
+          vvp build/sim/tb_fast
+
+      - name: Adversarial fixtures
+        run: python3 tools/sim/run_fixtures.py
+
+      - name: End to end, APF bridge writes through to RAM
+        run: python3 tools/sim/run_e2e.py

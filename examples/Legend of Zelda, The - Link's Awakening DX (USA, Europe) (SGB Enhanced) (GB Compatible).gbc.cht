@@ -1,0 +1,21 @@
+cheats = 5
+
+cheat0_desc = "Infinite Health"
+cheat0_code = "01705ADB"
+cheat0_enable = true
+
+cheat1_desc = "999 Rupees"
+cheat1_code = "01095DDB+01995EDB"
+cheat1_enable = true
+
+cheat2_desc = "Infinite Bombs"
+cheat2_code = "01304DDB"
+cheat2_enable = true
+
+cheat3_desc = "Infinite Magic Powder"
+cheat3_code = "01304CDB"
+cheat3_enable = true
+
+cheat4_desc = "Max Seashells"
+cheat4_code = "01200FDB"
+cheat4_enable = true
