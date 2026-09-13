@@ -79,4 +79,5 @@ test:
 	$(SIMRUN) python3 tools/sim/run.py $(ARGS)
 	$(SIMRUN) python3 tools/sim/run_fixtures.py
 	$(SIMRUN) python3 tools/sim/run_e2e.py
-	$(SIMRUN) python3 tools/sim/run_osd.py
+	$(SIMRUN) python3 tools/sim/run_osd.py examples/*.cht \
+		tools/sim/fixtures/fullwidth.cht tools/sim/fixtures/codes_on.cht

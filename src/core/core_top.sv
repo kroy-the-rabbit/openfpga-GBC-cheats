@@ -652,7 +652,7 @@ end
 wire [128:0] gg_code;
 wire [31:0]  cheat_enable;
 wire [19:0]  cheat_bytes;
-wire [5:0]   cheat_codes, cheat_groups;
+wire [5:0]   cheat_codes, cheat_codes_on, cheat_groups;
 wire         gg_available;
 
 cheat_loader #(
@@ -666,6 +666,7 @@ cheat_loader #(
   .code        ( gg_code      ),
   .enable_mask ( cheat_enable ),
   .code_count  ( cheat_codes  ),
+  .codes_on    ( cheat_codes_on ),
   .group_count ( cheat_groups ),
   .byte_count  ( cheat_bytes  ),
   .desc_wr     ( desc_wr      ),
@@ -719,7 +720,7 @@ reg        osd_show_ss, osd_show_s, osd_cart_ss, osd_cart_s;
 always_ff @(posedge clk_vid) begin
   osd_mask_ss   <= cheat_enable_live; osd_mask_s   <= osd_mask_ss;
   osd_groups_ss <= cheat_groups;      osd_groups_s <= osd_groups_ss;
-  osd_codes_ss  <= cheat_codes;       osd_codes_s  <= osd_codes_ss;
+  osd_codes_ss  <= cheat_codes_on;    osd_codes_s  <= osd_codes_ss;
   osd_show_ss   <= cheats_osd;        osd_show_s   <= osd_show_ss;
   osd_cart_ss   <= osnotify_adapter_play; osd_cart_s <= osd_cart_ss;
 end

@@ -32,7 +32,7 @@ module tb_osd;
 
   wire [128:0] code;
   wire [31:0]  enable_mask;
-  wire [5:0]   code_count, group_count;
+  wire [5:0]   code_count, codes_on, group_count;
   wire [19:0]  byte_count;
   wire         desc_wr, desc_end;
   wire [4:0]   desc_group, desc_col;
@@ -41,7 +41,7 @@ module tb_osd;
   cheat_loader #(.MAX_CODES(32), .MAX_GROUPS(32)) loader (
     .clk (clk_sys), .reset (reset), .wr (wr), .data (data),
     .code (code), .enable_mask (enable_mask),
-    .code_count (code_count), .group_count (group_count),
+    .code_count (code_count), .codes_on (codes_on), .group_count (group_count),
     .byte_count (byte_count),
     .desc_wr (desc_wr), .desc_group (desc_group), .desc_col (desc_col),
     .desc_char (desc_char), .desc_end (desc_end)
@@ -72,7 +72,7 @@ module tb_osd;
     .show (show), .cart_mode (cart),
     .de (de), .v_blank (v_blank),
     .enable_mask (enable_mask),
-    .group_count (group_count), .code_count (code_count),
+    .group_count (group_count), .code_count (codes_on),
     .title_group (t_group), .title_col (t_col),
     .title_char (t_char), .title_len (t_len),
     .font_ch (font_ch), .font_row (font_row), .font_bits (font_bits),

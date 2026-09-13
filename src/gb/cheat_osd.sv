@@ -25,10 +25,10 @@
 // nth enabled one cannot be done combinationally per pixel, so it is done once
 // a frame into a small array.
 //
-// The line buffer, during horizontal blanking. Each text row needs 20 glyph
+// The line buffer, during horizontal blanking. Each text row needs 26 glyph
 // bytes and each takes a RAM read plus a font lookup; doing that per pixel
 // would put a memory on the video path. A line of blanking is far longer than
-// the 22 cycles this needs.
+// the 30 cycles this needs.
 
 module cheat_osd #(
 	// The glyph is 5 wide in an 8 wide byte, so a 6 pixel cell still leaves a
@@ -240,12 +240,12 @@ module cheat_osd #(
 	reg [7:0] line_bits [0:COLS-1];
 	reg [5:0] fill;                  // 0..COLS+1, two past the end to drain
 	reg       filling;
-	// Three stages, because the address is registered here and again inside
-	// cheat_titles before its data comes back. The header takes the same three
-	// so both halves of a line agree on which column they are drawing.
-	reg [4:0] fill_col_d1, fill_col_d2, fill_col_d3;
-	reg       fill_hdr_d1, fill_hdr_d2, fill_hdr_d3;
-	reg [5:0] hdr_char_d1, hdr_char_d2, hdr_char_d3;
+	// Two stages, address then write. cheat_titles registers its read once, so
+	// its answer for the column asked at d1 is valid in step with d2. The header
+	// takes the same two so both halves of a line agree on the column.
+	reg [4:0] fill_col_d1, fill_col_d2;
+	reg       fill_hdr_d1, fill_hdr_d2;
+	reg [5:0] hdr_char_d1, hdr_char_d2;
 
 	wire in_header = (text_row < HDR_ROWS[4:0]);
 	wire [4:0] row_index = text_row - HDR_ROWS[4:0];
@@ -270,24 +270,16 @@ module cheat_osd #(
 		fill_hdr_d1 <= in_header;
 		hdr_char_d1 <= header_char(text_row, fill[4:0]);
 
-		// Data stage: the RAM is answering.
+		// Write stage: the RAM is answering, so the glyph row is out.
 		fill_col_d2 <= fill_col_d1;
 		fill_hdr_d2 <= fill_hdr_d1;
 		hdr_char_d2 <= hdr_char_d1;
-		fill_col_d3 <= fill_col_d2;
-		fill_hdr_d3 <= fill_hdr_d2;
-		hdr_char_d3 <= hdr_char_d2;
-
-		// Write stage: the glyph row is out.
-		if (filling && fill >= 6'd3 && fill_col_d3 < COLS[4:0])
-			line_bits[fill_col_d3] <= row_used ? font_bits : 8'd0;
+		if (filling && fill >= 6'd2 && fill_col_d2 < COLS[4:0])
+			line_bits[fill_col_d2] <= row_used ? font_bits : 8'd0;
 	end
 
-	// The title RAM answers two cycles after being asked, so the header has to
-	// be delayed by the same two or the two halves of a line disagree about
-	// which column they are drawing.
-	wire beyond = !fill_hdr_d3 && (fill_col_d3 >= title_len);
-	assign font_ch  = fill_hdr_d3 ? hdr_char_d3 : (beyond ? SP : title_char);
+	wire beyond = !fill_hdr_d2 && (fill_col_d2 >= title_len);
+	assign font_ch  = fill_hdr_d2 ? hdr_char_d2 : (beyond ? SP : title_char);
 	assign font_row = glyph_row;
 
 	// ------------------------------------------------------------- output

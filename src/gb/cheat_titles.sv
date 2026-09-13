@@ -15,8 +15,8 @@
 // twenty-seventh character. Characters are stored as font indices, the ASCII
 // code minus 32, which is what cheat_font wants and saves storing a byte.
 //
-// A title shorter than 20 characters is not padded. Its length is kept in a
-// small register file instead, because clearing 20 bytes per title on every
+// A title shorter than 26 characters is not padded. Its length is kept in a
+// small register file instead, because clearing 26 bytes per title on every
 // load would need a state machine and the length needs one adder.
 
 module cheat_titles (

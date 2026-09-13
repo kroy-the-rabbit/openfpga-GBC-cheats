@@ -62,6 +62,7 @@ module cheat_loader #(
     output reg  [128:0] code,        // to CODES; bit 128 latches on its rising edge
     output reg  [31:0]  enable_mask, // per-group on/off, read from the file
     output reg  [5:0]   code_count,  // codes accepted
+    output reg  [5:0]   codes_on,    // of those, codes in groups left on
     output reg  [5:0]   group_count, // groups accepted
     output reg  [19:0]  byte_count,  // bytes received, for the menu readout
 
@@ -102,6 +103,7 @@ module cheat_loader #(
   reg        pend_code;    // `_code` seen, waiting to see whether it is a key
   reg        pend_desc;
   reg        capturing;   // inside the quoted value of a _desc key
+  reg  [4:0] desc_n;      // characters captured so far
   reg        pend_enable;
   reg        armed_code;   // a `_code =` key was seen; next string holds codes
   reg        armed_desc;
@@ -135,6 +137,8 @@ module cheat_loader #(
   // ------------------------------------------------------------- group state --
   reg [5:0] cur_group;
   reg       group_has_code;
+  reg [5:0] group_codes;     // codes accepted in the group being read
+  reg [5:0] last_codes;      // and in the group before it, for `_enable`
 
   // ------------------------------------------------------------------ decode --
   // Game Genie: value = AB, address = {~F, C, D, E}, compare = rotr2(GI) ^ 0xBA.
@@ -220,6 +224,7 @@ module cheat_loader #(
       pend_desc      <= 1'b0;
       capturing      <= 1'b0;
       desc_col       <= 5'd0;
+      desc_n         <= 5'd0;
       pend_enable    <= 1'b0;
       armed_code     <= 1'b0;
       armed_desc     <= 1'b0;
@@ -233,6 +238,9 @@ module cheat_loader #(
       cur_group      <= 6'd0;
       group_has_code <= 1'b0;
       code_count     <= 6'd0;
+      codes_on       <= 6'd0;
+      group_codes    <= 6'd0;
+      last_codes     <= 6'd0;
       group_count    <= 6'd0;
       byte_count     <= 20'd0;
       code           <= 129'd0;
@@ -274,7 +282,9 @@ module cheat_loader #(
                              16'd0, tok_addr, 24'd0, tok_cmp, 24'd0, tok_val};
               emit           <= 2'd1;
               code_count     <= code_count + 6'd1;
+              codes_on       <= codes_on + 6'd1;
               group_has_code <= 1'b1;
+              group_codes    <= group_codes + 6'd1;
             end
             tok_len <= 4'd0;
             tok_ovf <= 1'b0;
@@ -285,26 +295,36 @@ module cheat_loader #(
                 last_group_ok <= 1'b1;
                 cur_group     <= cur_group + 6'd1;
                 group_count   <= group_count + 6'd1;
+                last_codes    <= group_codes + {5'd0, tok_ok && room};
               end else begin
                 last_group_ok <= 1'b0;
               end
               group_has_code <= 1'b0;
+              group_codes    <= 6'd0;
             end
           end
         end else if (in_str) begin
           if (is_quote) begin
             in_str    <= 1'b0;
             capturing <= 1'b0;
-            if (capturing) desc_end <= 1'b1;
-          end else if (capturing && desc_col < TITLE_W[4:0]) begin
+            if (capturing) begin
+              desc_end <= 1'b1;
+              desc_col <= desc_n;             // the length
+            end
+          end else if (capturing && desc_n < TITLE_W[4:0]) begin
+            // desc_col is this character's column, in step with the strobe
             desc_wr   <= 1'b1;
             desc_char <= font_index(ch);
-            desc_col  <= desc_col + 5'd1;
+            desc_col  <= desc_n;
+            desc_n    <= desc_n + 5'd1;
           end
         end else if (armed_enable && is_alnum) begin
           // the value of a `cheatN_enable` key: the first word after it
-          if (last_group_ok && (cur_group != 6'd0) && !says_on)
+          if (last_group_ok && (cur_group != 6'd0) && !says_on
+              && enable_mask[cur_group[4:0] - 5'd1]) begin
             enable_mask[cur_group[4:0] - 5'd1] <= 1'b0;
+            codes_on <= codes_on - last_codes;
+          end
           armed_enable <= 1'b0;
           pend_code    <= 1'b0;
           pend_desc    <= 1'b0;
@@ -323,12 +343,13 @@ module cheat_loader #(
             tok_len        <= 4'd0;
             tok_ovf        <= 1'b0;
             group_has_code <= 1'b0;
+            group_codes    <= 6'd0;
           end else begin
             in_str <= 1'b1;
             if (armed_desc) begin
               capturing  <= 1'b1;
               desc_group <= cur_group[4:0];
-              desc_col   <= 5'd0;
+              desc_n     <= 5'd0;
             end
           end
         end else begin
