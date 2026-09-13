@@ -10,6 +10,8 @@ REPO=${REPO:-/work}
 BDIR="$REPO/build/$TARGET"
 SRC="$BDIR/src"
 HERE="$(cd "$(dirname "$0")" && pwd)"
+source "$HERE/version.sh"
+STAMP=$(pocket_version "${RELEASE_NAME:-}")
 
 case "$TARGET" in
   gbc) ISGBC=1 ;;
@@ -19,7 +21,6 @@ esac
 
 CORE_DIR=$(ls -d "$REPO/pkg/$TARGET/Cores"/*/ | head -1)
 CORE_NAME=$(basename "$CORE_DIR")
-VERSION=$(python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['core']['metadata']['version'])" "$CORE_DIR/core.json")
 RBF_NAME=$(python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['core']['cores'][0]['filename'])" "$CORE_DIR/core.json")
 
 echo "== target=$TARGET core=$CORE_NAME version=$VERSION bitstream=$RBF_NAME"
@@ -92,19 +93,13 @@ else
 fi
 test -f output_files/ap_core.rbf || { echo "no .rbf produced, see $BDIR/build.log" >&2; exit 1; }
 
-# 4. Bitstream + SD tree + zip. The packaged core.json is stamped
-#    <version>.<sha>[.dirty] and today's date so the Pocket's core menu says
-#    exactly which commit is loaded. pkg/ keeps the bare 0.9999.
+# 4. Bitstream and package, stamped with the UTC calendar version.
 python3 "$HERE/reverse_bits.py" output_files/ap_core.rbf "$BDIR/$RBF_NAME"
 rm -rf "$BDIR/sd"
 rsync -a --exclude .gitkeep "$REPO/pkg/$TARGET/" "$BDIR/sd/"
 cp "$BDIR/$RBF_NAME" "$BDIR/sd/Cores/$CORE_NAME/$RBF_NAME"
-# A release is named after its tag, v0.9999.<sha>: RELEASE_NAME with
-# SKIP_COMPILE=1 restamps an existing bitstream without a Quartus run.
-STAMP="${RELEASE_NAME:-}"
-STAMP="${STAMP#v}"
-[[ -n "$STAMP" ]] || STAMP="${VERSION}.${GIT_SHA:-nogit}${GIT_DIRTY:+.dirty}"
-python3 - "$BDIR/sd/Cores/$CORE_NAME/core.json" "$STAMP" "$(date -u +%Y-%m-%d)" <<'PY'
+# RELEASE_NAME with SKIP_COMPILE=1 restamps an existing bitstream.
+python3 - "$BDIR/sd/Cores/$CORE_NAME/core.json" "$STAMP" "$(pocket_version_date "$STAMP")" <<'PY'
 import json, sys
 path, version, date = sys.argv[1:]
 assert len(version) <= 31, f"version too long for APF: {version}"

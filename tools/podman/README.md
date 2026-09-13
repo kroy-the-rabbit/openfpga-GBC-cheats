@@ -12,10 +12,10 @@ You download Quartus Lite from Altera and accept Altera's terms yourself;
 installers are fetched only with `ACCEPT_ALTERA_EULA=1` set.
 
 ```sh
-git checkout v0.9999.<sha>
+git checkout v0.9999.YYYYMMDD
 ACCEPT_ALTERA_EULA=1 make installers   # 3.4 GB into tools/podman/dl/, once
 make image                             # Quartus installed into a local image, once
-RELEASE_NAME=v0.9999.<sha> make all    # both cores, stamped as the release
+RELEASE_NAME=v0.9999.YYYYMMDD make all    # both cores, stamped as the release
 sha256sum build/*/kroy.*.zip           # compare with the release's SHA256SUMS
 ```
 
@@ -38,7 +38,7 @@ SEED=2 tools/runner-build start <runner> pocket-gbc gb <job> HEAD   # a reseed
 
 | Path | What |
 |---|---|
-| `build/gbc/kroy.GBC_<version>.zip` | the core package, stamped `0.9999.<sha>` |
+| `build/gbc/kroy.GBC_<version>.zip` | the core package, stamped `0.9999.YYYYMMDD` |
 | `build/gbc/report.txt` | worst slack per analysis type, utilization, full fit/STA summaries |
 | `build/gbc/build.log` | full Quartus output |
 | `build/gbc/gbc.rbf_r` | Pocket bitstream (bit-reversed `.rbf`) |
@@ -66,11 +66,11 @@ the card mounted. `UNMOUNT=1` unmounts.
 
 ## Restamping for a release
 
-A release is stamped `0.9999.<sha>` from the tag. On the checkout that holds
+A release is stamped `0.9999.YYYYMMDD` from the tag. On the checkout that holds
 the compiled outputs:
 
 ```sh
-RELEASE_NAME=v0.9999.<sha> make gbc SKIP_COMPILE=1
+RELEASE_NAME=v0.9999.YYYYMMDD make gbc SKIP_COMPILE=1
 ```
 
 This repackages the existing bitstream without a Quartus run. Check that every
@@ -78,8 +78,9 @@ file but `core.json` is byte-identical to the tested zip.
 
 The checked-in `src/` is never modified. `build-core.sh` copies it, flips
 `` `define isgbc `` for the GB target, and sets `NUM_PARALLEL_PROCESSORS ALL`.
-Untagged builds are stamped `<version>.<sha>[.dirty]` with the build date;
-`pkg/` keeps the bare `0.9999`.
+Untagged builds also use the UTC calendar date. The source commit and dirty
+state remain in the build report. Preserve the original report and bitstream
+checksum when restamping an existing build.
 
 ## Testing the RTL
 

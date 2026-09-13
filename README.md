@@ -60,17 +60,10 @@ cartridge or from a file on the card.
 
 ## Versions
 
-Every project in this set sits at **0.9999** and none of them moves off it.
-1.0 is a claim to be finished, none of this is finished, and a version that
-never climbs cannot drift into making that claim by accident.
-
-The projects are not kept in step with each other. A release adds the short
-SHA of the commit it was cut from, so a tag reads `v0.9999.706be02`, and two
-tags that share the prefix are unrelated releases. Read the tail, not the
-number.
-
-Provenance is stated in words, above and in the credits, rather than implied by
-a number.
+Versions use `0.9999.YYYYMMDD`, where the date is UTC. Release tags add `v`,
+for example `v0.9999.20260913`. Each project releases independently.
+The source commit and bitstream checksums are recorded in build provenance.
+A published date is not reused for a different build.
 
 ## Installation
 
@@ -152,8 +145,8 @@ tedious.
 | | |
 |---|---|
 | [docs/CHEATS.md](docs/CHEATS.md) | using cheats: the file, the overlay, the menu readout, cartridges |
-| [docs/PLAN.md](docs/PLAN.md) | design and phasing |
-| [docs/BASELINE.md](docs/BASELINE.md) | measured area and timing, build by build |
+| [docs/PLAN.md](docs/PLAN.md) | engineering history (private) |
+| [docs/BASELINE.md](docs/BASELINE.md) | current tested build measurements |
 
 ## Building from source
 
@@ -207,7 +200,8 @@ their headers, which provide that where the MIT or GNU licences must apply,
 those prevail.
 
 Neither this repository nor upstream carries a LICENSE file, so the per-file
-notices are the licence. Binary releases here are built from the exact tagged
-commit of this repository on a controlled builder, and the tag is the
-corresponding source for them. The release carries the zips, their SHA-256
-sums, and the timing reports.
+notices are the licence. Binary releases come from controlled builders. Each dated release includes
+`BUILD.json` with the original build commit and bitstream checksums. Its
+release tag may also include documentation and packaging changes; the FPGA
+source is unchanged from the recorded build. The package, checksums and
+timing report accompany that provenance.

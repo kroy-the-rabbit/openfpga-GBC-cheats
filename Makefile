@@ -7,7 +7,7 @@
 #                     (fits run on the runners: ../tools/runner-build start <runner> pocket-gbc gbc <job> HEAD)
 #   make all          both targets
 #   make gbc SKIP_COMPILE=1   repackage existing outputs (no Quartus run)
-#   make gbc SKIP_COMPILE=1 RELEASE_NAME=v0.9999.<sha>   restamp for a release
+#   make gbc SKIP_COMPILE=1 RELEASE_NAME=v0.9999.YYYYMMDD   restamp for a release
 #   make gb SEED=2            re-run the fitter with a different seed
 #   make report       regenerate build/<target>/report.txt from existing outputs
 #   make flash-gbc ZIP=<zip>   merge a core zip onto the mounted card and verify; UNMOUNT=1 to unmount
