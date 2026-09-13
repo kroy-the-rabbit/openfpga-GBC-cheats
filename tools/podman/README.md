@@ -25,13 +25,13 @@ same source: build-ID timestamps and placement on another machine change it.
 
 ## Building
 
-From `pocket-dev`:
+Release builds go through the private build tooling:
 
 ```sh
-tools/runner-build start sisko pocket-gbc gbc <job> HEAD
-tools/runner-build current sisko
-tools/runner-build fetch sisko pocket-gbc gbc <job> HEAD
-SEED=2 tools/runner-build start sisko2 pocket-gbc gb <job> HEAD   # a reseed
+tools/runner-build start <runner> pocket-gbc gbc <job> HEAD
+tools/runner-build current <runner>
+tools/runner-build fetch <runner> pocket-gbc gbc <job> HEAD
+SEED=2 tools/runner-build start <runner> pocket-gbc gb <job> HEAD   # a reseed
 ```
 
 `fetch` brings back per target:
