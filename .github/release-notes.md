@@ -1,3 +1,8 @@
+This update fixes cheat-overlay title alignment and counts only enabled
+codes. Both GB and GBC packages are built from `706be02`, pass timing and
+were tested on a Pocket. The release includes both packages, their timing
+reports and SHA-256 checksums.
+
 **Download `kroy.GBC_<version>.zip` or `kroy.GB_<version>.zip` below**, not the
 "Source code" archives. Those are the repository, and the bitstream is not
 committed, so a core installed from one is listed by the Pocket
