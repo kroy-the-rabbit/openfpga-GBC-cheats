@@ -60,10 +60,14 @@ cartridge or from a file on the card.
 
 ## Versions
 
-The five projects in this set share one version number. The set is at
-**0.9999**. The next release is 0.99991, then 0.99992, and so on: each one adds
-to the tail rather than climbing toward a round number. Nothing here reaches
-1.0, because 1.0 is a claim to be finished and none of this is.
+Every project in this set sits at **0.9999** and none of them moves off it.
+1.0 is a claim to be finished, none of this is finished, and a version that
+never climbs cannot drift into making that claim by accident.
+
+The projects are not kept in step with each other. A release adds the short
+SHA of the commit it was cut from, so a tag reads `v0.9999.706be02`, and two
+tags that share the prefix are unrelated releases. Read the tail, not the
+number.
 
 Provenance is stated in words, above and in the credits, rather than implied by
 a number.
@@ -72,7 +76,7 @@ a number.
 
 Prebuilt cores are on the [Releases](../../releases) page. Download
 `kroy.GBC_<version>.zip` and `kroy.GB_<version>.zip`, not the "Source code"
-archives: the bitstream is built by CI rather than committed, so a core
+archives: the bitstream is not committed, so a core
 installed from a source archive is listed by the Pocket and cannot start.
 
 These install as `Cores/kroy.GBC` and `Cores/kroy.GB`. They do not replace an
@@ -203,5 +207,7 @@ their headers, which provide that where the MIT or GNU licences must apply,
 those prevail.
 
 Neither this repository nor upstream carries a LICENSE file, so the per-file
-notices are the licence. Binary releases here are built by CI from a tagged
-commit of this repository, which is the corresponding source for them.
+notices are the licence. Binary releases here are built from the exact tagged
+commit of this repository on a controlled builder, and the tag is the
+corresponding source for them. The release carries the zips, their SHA-256
+sums, and the timing reports.

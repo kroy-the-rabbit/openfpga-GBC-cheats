@@ -1,6 +1,6 @@
 **Download `kroy.GBC_<version>.zip` or `kroy.GB_<version>.zip` below**, not the
-"Source code" archives. Those are the repository, and the bitstream is built by
-CI rather than committed, so a core installed from one is listed by the Pocket
+"Source code" archives. Those are the repository, and the bitstream is not
+committed, so a core installed from one is listed by the Pocket
 but cannot start: *error in framework, can't find bitstream*.
 
 ## Installing

@@ -1,9 +1,18 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Download the Quartus Prime Lite installer + Cyclone V device pack into tools/podman/dl/.
-# Lite edition needs no login or license. Files are verified by byte size
-# (Altera does not publish checksums on the CDN); re-run to resume/verify.
+# Download the Quartus Prime Lite installer + Cyclone V device pack into tools/podman/dl/,
+# for rebuilding a release on your own machine. You accept Altera's terms yourself.
+# Files are verified by byte size (Altera does not publish checksums on the CDN);
+# re-run to resume/verify.
 set -euo pipefail
+
+if [[ ${ACCEPT_ALTERA_EULA:-} != 1 ]]; then
+  printf '%s\n' \
+    'Refusing to download without explicit license acceptance.' \
+    'Read and accept the terms presented by the Altera download site, then run:' \
+    '  ACCEPT_ALTERA_EULA=1 make installers' >&2
+  exit 2
+fi
 
 QVER=${QVER:-25.1std.0}
 QBUILD=${QBUILD:-1129}

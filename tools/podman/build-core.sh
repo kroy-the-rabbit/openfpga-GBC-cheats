@@ -92,20 +92,18 @@ else
 fi
 test -f output_files/ap_core.rbf || { echo "no .rbf produced, see $BDIR/build.log" >&2; exit 1; }
 
-# 4. Bitstream + SD tree + zip. The packaged core.json gets an identifying
-#    SemVer prerelease version (<base>-cheats.<sha>[.dirty]) and today's date
-#    so the Pocket's core menu says exactly which commit is loaded. pkg/ in
-#    the repo keeps the upstream base version.
+# 4. Bitstream + SD tree + zip. The packaged core.json is stamped
+#    <version>.<sha>[.dirty] and today's date so the Pocket's core menu says
+#    exactly which commit is loaded. pkg/ keeps the bare 0.9999.
 python3 "$HERE/reverse_bits.py" output_files/ap_core.rbf "$BDIR/$RBF_NAME"
 rm -rf "$BDIR/sd"
 rsync -a --exclude .gitkeep "$REPO/pkg/$TARGET/" "$BDIR/sd/"
 cp "$BDIR/$RBF_NAME" "$BDIR/sd/Cores/$CORE_NAME/$RBF_NAME"
-# A tagged build is named after its tag, so the Pocket menu reads a version a
-# human can compare at a glance: 1.4.0-cheats.2 is obviously not .1. Untagged
-# builds keep the commit sha, which is what you want while iterating.
+# A release is named after its tag, v0.9999.<sha>: RELEASE_NAME with
+# SKIP_COMPILE=1 restamps an existing bitstream without a Quartus run.
 STAMP="${RELEASE_NAME:-}"
 STAMP="${STAMP#v}"
-[[ -n "$STAMP" ]] || STAMP="${VERSION}-cheats.${GIT_SHA:-nogit}${GIT_DIRTY:+.dirty}"
+[[ -n "$STAMP" ]] || STAMP="${VERSION}.${GIT_SHA:-nogit}${GIT_DIRTY:+.dirty}"
 python3 - "$BDIR/sd/Cores/$CORE_NAME/core.json" "$STAMP" "$(date -u +%Y-%m-%d)" <<'PY'
 import json, sys
 path, version, date = sys.argv[1:]

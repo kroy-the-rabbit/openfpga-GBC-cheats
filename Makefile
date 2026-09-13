@@ -1,13 +1,16 @@
 # Containerized Quartus build for the Pocket GB/GBC core. See tools/podman/README.md.
 #
-#   make installers   download Quartus Lite installers (3.4 GB, once)
+# Releases come from ../tools/runner-build. These targets rebuild one from its tag:
+#   ACCEPT_ALTERA_EULA=1 make installers   Quartus Lite installers, 3.4 GB, once; you accept Altera's terms
 #   make image        build the container image (~20 min, once)
 #   make gbc | gb     build a target -> build/<target>/{*.rbf_r,sd/,*.zip,report.txt}
+#                     (fits run on the runners: ../tools/runner-build start <runner> pocket-gbc gbc <job> HEAD)
 #   make all          both targets
 #   make gbc SKIP_COMPILE=1   repackage existing outputs (no Quartus run)
+#   make gbc SKIP_COMPILE=1 RELEASE_NAME=v0.9999.<sha>   restamp for a release
 #   make gb SEED=2            re-run the fitter with a different seed
 #   make report       regenerate build/<target>/report.txt from existing outputs
-#   make flash-gbc    copy build/gbc/sd/ onto the mounted Pocket card and unmount it
+#   make flash-gbc ZIP=<zip>   merge a core zip onto the mounted card and verify; UNMOUNT=1 to unmount
 #   make shell        interactive shell in the container with the repo at /work
 #   make clean        remove build/
 
@@ -44,7 +47,8 @@ report:
 	@for t in gbc gb; do [ -d build/$$t/src/output_files ] && GIT_SHA=$(GIT_SHA) GIT_DIRTY=$(GIT_DIRTY) $(HARNESS)/report.sh $$t; done; true
 
 flash-gbc flash-gb:
-	tools/flash.sh $(@:flash-%=%) $(SD)
+	@test -n "$(ZIP)" || { echo "set ZIP=build/$(@:flash-%=%)/kroy.<core>_<version>.zip" >&2; exit 1; }
+	tools/flash.sh "$(ZIP)" $(SD)
 
 shell: PODMAN_TTY = -it
 shell:
