@@ -1,7 +1,5 @@
 cheats = 2
 
-# Two cheats, so both fit the slots: an any-bank code, then one code per bank
-
 cheat0_desc = "Any bank"
 cheat0_code = "0111A0D0"
 cheat0_enable = true

@@ -36,17 +36,10 @@ def compile_tb() -> None:
                    + [os.path.join(ROOT, s) for s in SOURCES], check=True)
 
 
-def expected(path: str, slots: int):
-    """What the core should do per address, given which slots are on.
-
-    Each entry is (addr, value, compare, uses_compare, how). `how` is 1 when
-    cheat_poker writes it into RAM and the read override must stay quiet, 0
-    for a read override, and 2 for a code that must do neither: its cheat is
-    in a slot that is off, or in no slot at all. The file's enable flags play
-    no part.
-    """
+def expected(path: str, slots: int, master: bool):
+    """(addr, value, compare, uses_compare, how) per address; how: 0 override, 1 poke, 2 neither."""
     groups = chtparse.parse(open(path, "rb").read())
-    mask = slots
+    mask = (slots | (chtparse.enable_mask(groups) & ~3)) if master else 0
 
     # The code store holds one entry per (address, cheat), enabled or not: a
     # later code replaces an earlier one only when both belong to the same
@@ -114,20 +107,21 @@ def bank_gate() -> bool:
     return ok
 
 
-def run(path: str, slots: int = 3) -> bool:
-    hits, codes, groups, mask, n_entries = expected(path, slots)
+def run(path: str, slots: int = 3, master: bool = True) -> bool:
+    hits, codes, groups, mask, n_entries = expected(path, slots, master)
     exp = os.path.join(BUILD, "expected.txt")
     with open(exp, "w") as f:
         for a, v, c, u, p in hits:
             f.write(f"{a} {v} {c} {u} {p}\n")
 
     out = subprocess.run([TB, f"+f={path}", f"+e={exp}",
-                          f"+entries={n_entries}", f"+slots={slots}"],
+                          f"+entries={n_entries}", f"+slots={slots}",
+                          f"+master={int(master)}"],
                          capture_output=True, text=True).stdout
     ok = "PASS" in out and "OVERFLOW" not in out
     size = os.path.getsize(path)
 
-    print(f"--- {os.path.basename(path)}  (slots {slots:02b})")
+    print(f"--- {os.path.basename(path)}  (slots {slots:02b}, master {'on' if master else 'off'})")
     poked = sum(1 for h in hits if h[4] == 1)
     off = sum(1 for h in hits if h[4] == 2)
     print(f"    file {size} bytes, model: {codes} codes, {groups} cheats, "
@@ -148,14 +142,12 @@ def main() -> int:
     if not files:
         print("no .cht files given")
         return 2
-    runs = [(p, 3) for p in files]
+    runs = [(p, 3, True) for p in files]
     if not sys.argv[1:]:
-        # Three cheats, every slot state: only the cheats in slots that are
-        # on apply, the third never does, and the file's flags change nothing.
         fix = os.path.join(ROOT, "tools", "sim", "fixtures", "slots.cht")
-        runs += [(fix, s) for s in range(4)]
+        runs += [(fix, s, m) for m in (False, True) for s in range(4)]
     compile_tb()
-    bad = [p for p, s in runs if not run(p, s)]
+    bad = [p for p, s, m in runs if not run(p, s, m)]
     if not bank_gate():
         bad.append("bank.cht")
     print()

@@ -1,37 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-//
-// Draws the two cheat slots over the game picture, each marked on or off.
-//
-// The Pocket menu cannot do this. APF fixes every label in interact.json at
-// build time and gives a core no way to put a string on screen, which is why
-// the menu can only ever say "Cheat slot 1". The core does own every pixel of
-// the game picture, though, so the names go there instead.
-//
-//      3 CHEATS  5 CODES
-//     ROM FILE
-//     1 ON  INFINITE HEALTH (3 HE
-//     2 OFF 999 RUPEES
-//
-// The header counts what the parser made of the file, so a file with more
-// cheats than slots says so. The second header row says whether the game is a
-// cartridge or a file, because the two get their cheats by different routes
-// and a wrong file looks the same as no file. Then one row per loaded slot:
-// its number, ON or OFF from the menu, and the cheat's name.
-//
-// The screen is 160x144 and the cell is 6x8, so the grid is 26 columns by
-// 18 rows. The six column slot prefix leaves 20 for the name.
-//
-// The line buffer is filled during horizontal blanking. Each text row needs 26
-// glyph bytes and each takes a RAM read plus a font lookup; doing that per
-// pixel would put a memory on the video path. A line of blanking is far longer
-// than the 30 cycles this needs.
+// Cheat overlay: counts, source, global switch, two slot rows, then the rest.
+// Display list built in vblank, line buffer in hblank. See docs/CHEATS.md.
 
 module cheat_osd #(
-	// The glyph is 5 wide in an 8 wide byte, so a 6 pixel cell still leaves a
-	// clear column between letters and fits 26 of them across a 160 pixel
-	// screen instead of 20. Rows stay at 8: the gap under a glyph is what keeps
-	// lines apart, and there is no shortage of height.
-	parameter CELL = 6,
+	parameter CELL = 6,              // 5 px glyph plus a gap
 	parameter COLS = 26,             // 160 / 6, rounded down
 	parameter ROWS = 18              // 144 / 8
 ) (
@@ -43,7 +15,8 @@ module cheat_osd #(
 	input  wire        de,           // active picture
 	input  wire        v_blank,
 
-	input  wire [31:0] enable_mask,  // bit n: slot n+1 is on
+	input  wire [31:0] file_mask,    // the file's _enable flags, bit n is group n
+	input  wire [2:0]  switches,     // {Cheats enabled, slot 2, slot 1}, from the menu
 	input  wire [5:0]  group_count,
 	input  wire [5:0]  code_count,
 
@@ -60,9 +33,17 @@ module cheat_osd #(
 	output wire        ink           // and it is part of a letter
 );
 
-	localparam HDR_ROWS  = 2;        // counts, then where the game came from
-	localparam SLOTS     = 2;        // one row each
-	localparam PREFIX    = 6;        // "1 ON  " before the name
+	localparam HDR_ROWS   = 3;
+	localparam MASTER_ROW = 2;
+	localparam SLOTS      = 2;
+	localparam PREFIX     = 6;       // "1 ON  "
+	localparam REST_ROW   = HDR_ROWS + SLOTS;
+	localparam MAX_REST   = ROWS - REST_ROW;
+
+	localparam MASTER_LEN = 14;      // uppercase, at most COLS - 4
+	localparam [8*MASTER_LEN-1:0] MASTER_LABEL = "CHEATS ENABLED";
+
+	wire master_on = switches[2];
 
 	// ---------------------------------------------------------------- pixels
 	reg [7:0] px;
@@ -103,6 +84,41 @@ module cheat_osd #(
 		end
 	end
 
+	// ---------------------------------------------------- display list
+	// The rest the file left on, rebuilt every vblank; the slots are not in it.
+	reg [4:0] list [0:MAX_REST-1];
+	reg [4:0] list_n;
+	reg [5:0] scan;
+	reg [4:0] found;
+	reg       scanning;
+	reg       vb_d;
+	wire      vb_rise = v_blank & ~vb_d;
+
+	always_ff @(posedge clk) begin
+		vb_d <= v_blank;
+		if (reset) begin
+			scanning <= 1'b0;
+			list_n   <= 5'd0;
+			scan     <= 6'd0;
+			found    <= 5'd0;
+		end else if (vb_rise) begin
+			scanning <= 1'b1;
+			scan     <= SLOTS[5:0];
+			found    <= 5'd0;
+		end else if (scanning) begin
+			if (scan >= group_count || found >= MAX_REST[4:0]) begin
+				scanning <= 1'b0;
+				list_n   <= found;
+			end else begin
+				if (file_mask[scan[4:0]]) begin
+					list[found] <= scan[4:0];
+					found       <= found + 5'd1;
+				end
+				scan <= scan + 6'd1;
+			end
+		end
+	end
+
 	// ------------------------------------------------------------- header
 	// "NN CHEATS MM CODES", or a plain statement when there is nothing to say.
 	function automatic [5:0] digit(input [5:0] v, input tens);
@@ -123,16 +139,36 @@ module cheat_osd #(
 	                 M = 6'd45, N = 6'd46, O = 6'd47, R = 6'd50, S = 6'd51,
 	                 T = 6'd52;
 
-	// "1 ON  " or "2 OFF ", in front of the name.
-	function automatic [5:0] slot_char(input [4:0] slot, input [4:0] col);
+	function automatic [5:0] state_char(input on, input [4:0] col);
 		begin
 			case (col)
-				5'd0: slot_char = 6'h11 + {1'b0, slot};   // '1' is font index 17
-				5'd2: slot_char = O;
-				5'd3: slot_char = enable_mask[slot] ? N : F;
-				5'd4: slot_char = enable_mask[slot] ? SP : F;
-				default: slot_char = SP;
+				5'd0: state_char = O;
+				5'd1: state_char = on ? N : F;
+				5'd2: state_char = on ? SP : F;
+				default: state_char = SP;
 			endcase
+		end
+	endfunction
+
+	function automatic [5:0] slot_char(input [4:0] slot, input [4:0] col);
+		begin
+			if (col == 5'd0)      slot_char = 6'h11 + {1'b0, slot};   // '1' is font index 17
+			else if (col >= 5'd2) slot_char = state_char(switches[slot[0]], col - 5'd2);
+			else                  slot_char = SP;
+		end
+	endfunction
+
+	function automatic [5:0] master_char(input [4:0] col);
+		reg [7:0] ch;
+		begin
+			if (col < MASTER_LEN[4:0]) begin
+				ch = MASTER_LABEL[8*(MASTER_LEN-1-col) +: 8];
+				master_char = ch[5:0] - 6'd32;
+			end else if (col > MASTER_LEN[4:0]) begin
+				master_char = state_char(master_on, col - MASTER_LEN[4:0] - 5'd1);
+			end else begin
+				master_char = SP;
+			end
 		end
 	endfunction
 
@@ -165,35 +201,37 @@ module cheat_osd #(
 		end
 	endfunction
 
-	function automatic [5:0] header_char(input [4:0] row, input [4:0] col);
+	function automatic [5:0] fixed_char(input [4:0] row, input [4:0] col);
 		begin
 			if (row == 5'd1) begin
-				header_char = mode_char(col);
+				fixed_char = mode_char(col);
+			end else if (row == MASTER_ROW[4:0]) begin
+				fixed_char = master_char(col);
 			end else if (group_count == 6'd0) begin
 				// "NO CHEATS LOADED"
 				case (col)
-					5'd0: header_char = N;  5'd1: header_char = O;
-					5'd3: header_char = C;  5'd4: header_char = H;
-					5'd5: header_char = E;  5'd6: header_char = A;
-					5'd7: header_char = T;  5'd8: header_char = S;
-					5'd10: header_char = L; 5'd11: header_char = O;
-					5'd12: header_char = A; 5'd13: header_char = D;
-					5'd14: header_char = E; 5'd15: header_char = D;
-					default: header_char = SP;
+					5'd0: fixed_char = N;  5'd1: fixed_char = O;
+					5'd3: fixed_char = C;  5'd4: fixed_char = H;
+					5'd5: fixed_char = E;  5'd6: fixed_char = A;
+					5'd7: fixed_char = T;  5'd8: fixed_char = S;
+					5'd10: fixed_char = L; 5'd11: fixed_char = O;
+					5'd12: fixed_char = A; 5'd13: fixed_char = D;
+					5'd14: fixed_char = E; 5'd15: fixed_char = D;
+					default: fixed_char = SP;
 				endcase
 			end else begin
 				case (col)
-					5'd0: header_char = digit(group_count, 1'b1);
-					5'd1: header_char = digit(group_count, 1'b0);
-					5'd3: header_char = C;  5'd4: header_char = H;
-					5'd5: header_char = E;  5'd6: header_char = A;
-					5'd7: header_char = T;  5'd8: header_char = S;
-					5'd10: header_char = digit(code_count, 1'b1);
-					5'd11: header_char = digit(code_count, 1'b0);
-					5'd13: header_char = C;  5'd14: header_char = O;
-					5'd15: header_char = D;  5'd16: header_char = E;
-					5'd17: header_char = S;
-					default: header_char = SP;
+					5'd0: fixed_char = digit(group_count, 1'b1);
+					5'd1: fixed_char = digit(group_count, 1'b0);
+					5'd3: fixed_char = C;  5'd4: fixed_char = H;
+					5'd5: fixed_char = E;  5'd6: fixed_char = A;
+					5'd7: fixed_char = T;  5'd8: fixed_char = S;
+					5'd10: fixed_char = digit(code_count, 1'b1);
+					5'd11: fixed_char = digit(code_count, 1'b0);
+					5'd13: fixed_char = C;  5'd14: fixed_char = O;
+					5'd15: fixed_char = D;  5'd16: fixed_char = E;
+					5'd17: fixed_char = S;
+					default: fixed_char = SP;
 				endcase
 			end
 		end
@@ -204,19 +242,21 @@ module cheat_osd #(
 	reg [7:0] line_bits [0:COLS-1];
 	reg [5:0] fill;                  // 0..COLS+1, two past the end to drain
 	reg       filling;
-	// Two stages, address then write. cheat_titles registers its read once, so
-	// its answer for the column asked at d1 is valid in step with d2. The header
-	// and the slot prefix take the same two so every part of a line agrees on
-	// the column.
+	// Two stages: cheat_titles answers one cycle after it is asked.
 	reg [4:0] fill_col_d1, fill_col_d2;
-	reg       fill_hdr_d1, fill_hdr_d2;
-	reg [5:0] hdr_char_d1, hdr_char_d2;
+	reg       fixed_d1, fixed_d2;
+	reg       slot_d1, slot_d2;
+	reg [5:0] fixed_char_d1, fixed_char_d2;
 	reg [5:0] pre_char_d1, pre_char_d2;
 
-	wire in_header = (text_row < HDR_ROWS[4:0]);
-	wire [4:0] row_index = text_row - HDR_ROWS[4:0];   // the slot, 0 based
-	wire       row_used  = in_header
-	                    || (row_index < SLOTS[4:0] && {1'b0, row_index} < group_count);
+	wire       fixed_row  = (text_row < HDR_ROWS[4:0])
+	                     && !(text_row == MASTER_ROW[4:0] && group_count == 6'd0);
+	wire [4:0] slot_index = text_row - HDR_ROWS[4:0];
+	wire       slot_row   = (text_row >= HDR_ROWS[4:0]) && (text_row < REST_ROW[4:0])
+	                     && ({1'b0, slot_index} < group_count);
+	wire [4:0] rest_index = text_row - REST_ROW[4:0];
+	wire       rest_row   = (text_row >= REST_ROW[4:0]) && (rest_index < list_n);
+	wire       row_used   = fixed_row || slot_row || rest_row;
 
 	always_ff @(posedge clk) begin
 		if (reset) begin
@@ -230,30 +270,29 @@ module cheat_osd #(
 			else                 fill <= fill + 6'd1;
 		end
 
-		// Address stage: ask the title RAM and the font for column `fill`.
-		// The name starts after the prefix, so the RAM is asked for the
-		// column PREFIX back; what it says for the prefix columns is unused.
-		title_group <= row_used && !in_header ? row_index : 5'd0;
-		title_col   <= fill[4:0] - PREFIX[4:0];
-		fill_col_d1 <= fill[4:0];
-		fill_hdr_d1 <= in_header;
-		hdr_char_d1 <= header_char(text_row, fill[4:0]);
-		pre_char_d1 <= slot_char(row_index, fill[4:0]);
+		title_group   <= slot_row ? slot_index : rest_row ? list[rest_index] : 5'd0;
+		title_col     <= slot_row ? fill[4:0] - PREFIX[4:0] : fill[4:0];
+		fill_col_d1   <= fill[4:0];
+		fixed_d1      <= fixed_row;
+		slot_d1       <= slot_row;
+		fixed_char_d1 <= fixed_char(text_row, fill[4:0]);
+		pre_char_d1   <= slot_char(slot_index, fill[4:0]);
 
-		// Write stage: the RAM is answering, so the glyph row is out.
-		fill_col_d2 <= fill_col_d1;
-		fill_hdr_d2 <= fill_hdr_d1;
-		hdr_char_d2 <= hdr_char_d1;
-		pre_char_d2 <= pre_char_d1;
+		fill_col_d2   <= fill_col_d1;
+		fixed_d2      <= fixed_d1;
+		slot_d2       <= slot_d1;
+		fixed_char_d2 <= fixed_char_d1;
+		pre_char_d2   <= pre_char_d1;
 		if (filling && fill >= 6'd2 && fill_col_d2 < COLS[4:0])
 			line_bits[fill_col_d2] <= row_used ? font_bits : 8'd0;
 	end
 
-	wire in_prefix = (fill_col_d2 < PREFIX[4:0]);
-	wire beyond    = ({1'b0, fill_col_d2} >= PREFIX[5:0] + {1'b0, title_len});
-	assign font_ch  = fill_hdr_d2 ? hdr_char_d2
-	                : in_prefix   ? pre_char_d2
-	                : beyond      ? SP : title_char;
+	wire [5:0] name_start = slot_d2 ? PREFIX[5:0] : 6'd0;
+	wire in_prefix = slot_d2 && (fill_col_d2 < PREFIX[4:0]);
+	wire beyond    = ({1'b0, fill_col_d2} >= name_start + {1'b0, title_len});
+	assign font_ch  = fixed_d2  ? fixed_char_d2
+	                : in_prefix ? pre_char_d2
+	                : beyond    ? SP : title_char;
 	assign font_row = glyph_row;
 
 	// ------------------------------------------------------------- output

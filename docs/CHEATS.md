@@ -1,8 +1,9 @@
 # Cheats on the Pocket GB/GBC core
 
-Game Genie and GameShark codes, read straight from libretro `.cht` files. The
-first two cheats in the file fill two slots, and the core menu switches each
-slot on and off. Works with ROMs on the SD card and with a physical cartridge.
+Game Genie and GameShark codes, read straight from libretro `.cht` files. A
+global switch in the core menu turns cheats on; under it, the first two cheats
+in the file are two slots with a switch each, and the rest follow the file.
+Works with ROMs on the SD card and with a physical cartridge.
 
 > **Cheats can corrupt save files. Use at your own risk.**
 >
@@ -29,11 +30,11 @@ slot on and off. Works with ROMs on the SD card and with a physical cartridge.
    That is APF's rule for a slot whose filename is cloned from slot 0 (the
    extension is appended, not swapped).
 
-   The file is plain text and you write it by hand. Only keys ending `_code`
-   and `_desc` matter; both take a quoted value. Everything else is ignored,
-   including `_enable`, `cheats = N` and the number in `cheatN_`: cheats are
-   taken in file order, each `_code` starts a new one, and the first two are
-   the slots.
+   The file is plain text and you write it by hand. Only keys ending `_code`,
+   `_desc` and `_enable` are read; `_code` and `_desc` take a quoted value,
+   `_enable` a bare `true` or `false`. Everything else is ignored, including
+   `cheats = N` and the number in `cheatN_`: cheats are taken in file order,
+   each `_code` starts a new one, and the first two are the slots.
 
    ```
    cheat0_desc = "Infinite Hearts (3)"
@@ -55,30 +56,41 @@ slot on and off. Works with ROMs on the SD card and with a physical cartridge.
    a desktop picker that matches ROMs on the card against the cheat database and
    writes these files. Nothing here depends on it, and none of it lives here.
 
-2. Load the game, open the core menu and tick **Show cheats**. The two slots
-   appear over the picture by name, each marked ON or OFF, under a count of
-   what was parsed and whether this game came from a cartridge or a file. A
-   file that never loaded says NO CHEATS LOADED.
-3. **Cheat slot 1** and **Cheat slot 2** each turn one cheat on and off, and
-   both are **off at every launch**. Nothing is patched or written until you
-   tick one, and the core forgets that you did as soon as the session ends, so
-   no game ever starts with cheats live because of something you did days ago.
-   Loading a file does not switch a slot on and does not reset the game.
+2. Load the game, open the core menu and tick **Show cheats**. The overlay
+   shows a count of what was parsed, whether this game came from a cartridge
+   or a file, the state of each switch, the two slots by name, and the names
+   of the other cheats the file left on. A file that never loaded says NO
+   CHEATS LOADED.
+3. **Cheats enabled** turns the whole lot on and off. **Cheat slot 1** and
+   **Cheat slot 2** each turn one cheat on and off under it. All three are
+   **off at every launch**: nothing is patched or written until you tick
+   **Cheats enabled**, and the core forgets every switch as soon as the
+   session ends, so no game ever starts with cheats live because of something
+   you did days ago. Loading a file does not touch the switches and does not
+   reset the game.
 
 Nothing has to be converted or precompiled. The core parses the ASCII itself.
 
 ## Which cheats are on
 
-Two slots. Slot 1 is the first cheat in the file, slot 2 the second, and the
-menu check box for each is the only thing that turns it on.
+Nothing runs with **Cheats enabled** off. With it on:
 
-* Anything after the second cheat is parsed and counted in the overlay header,
-  and never applies. Write a file with the two cheats you want at the top
-  rather than dropping in a stock one.
-* The `cheatN_enable` key is read and ignored. Stock files from the libretro
-  database ship with every cheat set to `false`; that no longer matters.
+| Slot 1 | Slot 2 | Runs |
+|---|---|---|
+| on | on | cheat 1, cheat 2, and every later cheat the file left on |
+| off | on | cheat 2 and the later ones |
+| on | off | cheat 1 and the later ones |
+| off | off | the later ones only |
+
+* Slot 1 is the first cheat in the file, slot 2 the second. Their menu switch
+  decides; their `cheatN_enable` key is ignored.
+* Every cheat after the second follows its `cheatN_enable` key, exactly as
+  libretro writes it: `true` or `1` means on, anything else off, and no key at
+  all means on. Stock files from the libretro database ship with every cheat
+  set to `false`. Put the cheats you want to toggle first and write the rest
+  with `true`.
 * One libretro cheat can hold several codes joined with `+`; they are one cheat
-  and fill one slot.
+  and share one switch or flag.
 * Cheats whose codes contain `XX`/`YY` placeholders are not valid hex, so the
   core drops them, and a dropped cheat does not take a slot: the next valid
   one does.
@@ -87,7 +99,7 @@ The menu cannot name the slots. APF menu labels are fixed in JSON and cannot be
 changed by the core at runtime, so the rows read "Cheat slot 1" and "Cheat slot
 2"; the overlay says which cheat each one holds.
 
-Limits: two slots, from a file of up to 32 cheats and 32 codes, and 1 MB.
+Limits: 32 cheats and 32 codes per file, and 1 MB of file.
 
 ## Supported code formats
 
@@ -182,14 +194,15 @@ name a cartridge so the right cheat file is the one you find.
 | Entry | Address | Notes |
 |---|---|---|
 | Load Cheats | data slot 7 | file browser, `.cht` / `.txt` |
-| Cheat slot 1 | `0xF3000000` bit 0 | the first cheat in the file, off at every launch, never remembered |
-| Cheat slot 2 | `0xF300000C` bit 0 | the second, likewise |
-| Show cheats | `0xF3000010` bit 0 | draws both slots over the picture, marked on or off; off at every launch, not persisted |
+| Cheat slot 1 | `0xF300000C` bit 0 | the first cheat in the file, off at every launch, never remembered |
+| Cheat slot 2 | `0xF3000014` bit 0 | the second, likewise |
+| Cheats enabled | `0xF3000000` bit 0 | global switch, off at every launch, never remembered |
+| Show cheats | `0xF3000010` bit 0 | draws the overlay; off at every launch, not persisted |
 
-The three switches have an address each rather than three bits of one. Sharing
-a word means each checkbox has to preserve the others' bits through its mask,
-and on hardware that did not hold: when the overlay switch first shipped as a
-second bit of the cheat switch's word, toggling one cleared the other, and the
+The switches have an address each rather than bits of one. Sharing a word
+means each checkbox has to preserve the others' bits through its mask, and on
+hardware that did not hold: when the overlay switch first shipped as a second
+bit of the cheat switch's word, toggling one cleared the other, and the
 overlay checkbox did nothing. Whatever APF composes per control, one control
 writing one word cannot be ambiguous.
 
@@ -202,9 +215,9 @@ debugging over the bridge.
 ### The list on screen
 
 Both taken on a real Pocket, shown at 3x, before the slots: a ROM loaded from
-the card, and a cartridge in the slot. The overlay now lists the two slots
-instead, each prefixed `1 ON` or `2 OFF`, and the header counts everything the
-file held.
+the card, and a cartridge in the slot. The overlay now adds a `CHEATS ENABLED`
+row and lists the two slots prefixed `1 ON` or `2 OFF` ahead of the rest, and
+the header counts everything the file held.
 
 ![Four cheats listed over a game loaded from the SD card, headed "4 CHEATS 4 CODES" and "ROM FILE"](images/overlay-rom-file.png)
 
@@ -216,13 +229,14 @@ which is why the menu rows can only read "Cheat slot 1", "Cheat slot 2". The
 game picture is different: the core owns every pixel of it.
 
 The screen is 160x144 and the glyph is 5x7, drawn in a cell 6 wide and 8 tall,
-so the grid is 26 characters by 18 rows: two header rows, then one row per
-slot. Six rather than eight because the glyph is only five wide, so a six pixel
-cell still leaves a clear column between letters and fits a quarter more of
-them. The slot prefix takes six columns, so a name shows its first 20
-characters, uppercased, and anything outside the font is drawn as a space.
-Text is white on the game dimmed to a quarter, so it stays readable over a
-bright picture.
+so the grid is 26 characters by 18 rows: the counts, the source, the global
+switch, one row per slot, then up to 13 of the other cheats the file left on.
+Six rather than eight because the glyph is only five wide, so a six pixel cell
+still leaves a clear column between letters and fits a quarter more of them.
+The slot prefix takes six columns, so a slot's name shows its first 20
+characters; the rest get 26. Names are uppercased and anything outside the
+font is drawn as a space. Text is white on the game dimmed to a quarter, so it
+stays readable over a bright picture.
 
 The second header row says CARTRIDGE or ROM FILE, because the two get their
 cheat file by different routes: a file next to the ROM is picked up by name, a
@@ -250,12 +264,12 @@ entries, the GBC core already uses 7 for its own options, and menu labels are
 fixed in JSON: the core cannot rename them at runtime. A row can only ever
 read "Cheat slot 1", which tells you nothing about what it does, so the overlay
 names it, and two such rows is as many as a menu can carry without becoming a
-guessing game.
+guessing game. The rest of the file follows its own flags.
 
-Limits: the parser reads 32 cheats and 32 codes per file; anything past that
-is ignored, and only the first two cheats can apply. File size is capped at
-1 MB, which clears the largest file in the database by a wide margin (the
-bytes are parsed as they stream in, so there is no buffer to size).
+Limits: 32 cheats and 32 codes per file; anything past that is ignored. File
+size is capped at 1 MB, which clears the largest file in the database by a
+wide margin (the bytes are parsed as they stream in, so there is no buffer to
+size).
 
 ### If nothing happens
 
@@ -278,17 +292,19 @@ Then tick **Show cheats** and read the top of the screen.
 |---|---|
 | NO CHEATS LOADED | slot 7 never loaded: check the filename is `<rom filename>.cht`, or browse with **Load Cheats** |
 | a count, but no names | the file arrived and nothing decoded: placeholder `XX` codes, or a format the parser rejects |
-| the names you expected, marked OFF | tick the slot |
-| the names you expected, marked ON | the file is fine. Check that the codes match this exact game revision |
+| CHEATS ENABLED OFF | tick it |
+| a slot marked OFF | tick the slot |
+| the names you expected, everything ON | the file is fine. Check that the codes match this exact game revision |
 | CARTRIDGE when you meant to play a file, or the reverse | the cheats belong to the other one |
 
 None of the cheat switches is remembered, and all start off. Two reasons. APF
 keys saved values by widget id, so a value written by one build can be restored
-into a control that has since changed meaning. And a slot switch decides
-whether the core writes into a running game's RAM: a GameShark code fails open,
-writing whatever the code says to whatever happens to be at that address, so a
-session that begins with cheats live because of a checkbox you ticked days ago
-for a different game is the wrong default. Switching one on is one press.
+into a control that has since changed meaning. And **Cheats enabled** decides
+whether the core writes into a running game's RAM: a GameShark code fails
+open, writing whatever the code says to whatever happens to be at that
+address, so a session that begins with cheats live because of a checkbox you
+ticked days ago for a different game is the wrong default. Switching it on is
+one press.
 
 The other menu entries do persist, as upstream had them; if one behaves oddly
 after an upgrade, delete `/Settings/kroy.GBC/Interact/` on the card to fall back
@@ -336,13 +352,12 @@ and only the byte already there says which bank is mapped. The wide search
 collects candidates and the narrow stage picks between them.
 
 Each stored code carries the index of the cheat it belongs to, and `CODES` gates
-it with `enable_mask`, which is the two slot bits from the menu: bit 0 is the
-first cheat, bit 1 the second, and nothing else is ever set. `cheat_loader`
-still reads the file's enable flags into a mask of its own, which is left
-unconnected. The mask lookup is registered rather than combinational: the
+it with `enable_mask`: bits 0 and 1 are the slot switches, the higher bits are
+the file's enable flags as `cheat_loader` read them, and **Cheats enabled**
+clears the lot. The mask lookup is registered rather than combinational: the
 address compare already sits directly on the CPU data-in path, and adding a
 32-way mux there would cost timing for no benefit, since the mask changes only
-when a slot is switched.
+when a file loads or a switch is flipped.
 
 The same registered stage decides which mechanism owns each entry, so the CPU
 data path only ever sees the entries that actually override a read. `CODES`
@@ -378,8 +393,9 @@ as APF bridge writes on a 74.25 MHz clock, through `data_loader`'s dual clock
 FIFO, `cheat_loader`, `CODES` and `cheat_poker` on the 33.554432 MHz core
 clock, then checks both mechanisms: a poked address has to appear in RAM and
 must *not* also override the read, a read-override address has to override, a
-cheat whose slot is off, or which has no slot, must do neither, and neither a
-busy savestate nor both slots off may produce a write. That is the
+cheat that is switched off, by its slot, by its flag or by the global switch,
+must do neither, and neither a busy savestate nor the global switch off may
+produce a write. That is the
 path where the loader silently dropped bytes once already, so the stand-in
 `dcfifo` model in `tools/sim/dcfifo.sv` reports an overrun rather than hiding
 it, exactly as `overflow_checking = "OFF"` does on hardware.

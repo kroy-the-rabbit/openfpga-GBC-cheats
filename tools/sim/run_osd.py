@@ -32,7 +32,8 @@ SOURCES = ["tools/sim/tb_osd.sv", "src/gb/cheat_loader.sv",
 
 COLS, ROWS = 26, 18
 CELL_W, CELL_H = 6, 8
-SLOTS, PREFIX = 2, 6        # "1 ON  " ahead of each name, as cheat_osd draws it
+SLOTS, PREFIX = 2, 6        # "1 ON  " ahead of a slot's name, as cheat_osd draws it
+MASTER_LABEL = "CHEATS ENABLED"   # cheat_osd's MASTER_LABEL, the global switch's row
 
 
 def compile_tb() -> None:
@@ -48,9 +49,9 @@ def glyph_table() -> dict[tuple, str]:
     return table
 
 
-def render(path: str, cart: bool, slots: int) -> tuple[list[str], str]:
+def render(path: str, cart: bool, slots: int, master: bool) -> tuple[list[str], str]:
     out = subprocess.run([TB, f"+f={path}", f"+cart={int(cart)}",
-                          f"+slots={slots}"],
+                          f"+slots={slots}", f"+master={int(master)}"],
                          capture_output=True, text=True, check=True).stdout
     bitmap = [line[4:] for line in out.splitlines() if line.startswith("PIX ")]
     if len(bitmap) != ROWS * CELL_H:
@@ -81,7 +82,7 @@ def read_text(bitmap: list[str], table: dict[tuple, str]) -> list[str]:
     return lines
 
 
-def expected(path: str, cart: bool, slots: int) -> list[str]:
+def expected(path: str, cart: bool, slots: int, master: bool) -> list[str]:
     groups = chtparse.parse(open(path, "rb").read())
     codes = sum(len(g.codes) for g in groups)
     # The renderer lays the header out in fixed columns rather than joining
@@ -104,24 +105,31 @@ def expected(path: str, cart: bool, slots: int) -> list[str]:
     if not groups:
         head = "NO CHEATS LOADED"
 
+    def title(g, width):
+        t = (g.desc or "").upper()[:width]
+        return "".join(c if 32 <= ord(c) <= 95 else " " for c in t).rstrip()
+
     lines = [head, "CARTRIDGE" if cart else "ROM FILE"]
+    lines.append(f"{MASTER_LABEL} {'ON' if master else 'OFF'}" if groups else "")
     for i, g in enumerate(groups[:SLOTS]):
-        title = (g.desc or "").upper()[:COLS - PREFIX]
-        title = "".join(c if 32 <= ord(c) <= 95 else " " for c in title)
         mark = "ON " if slots >> i & 1 else "OFF"
-        lines.append(f"{i + 1} {mark} {title}".rstrip())
+        lines.append(f"{i + 1} {mark} {title(g, COLS - PREFIX)}".rstrip())
+    lines += [""] * (SLOTS - len(groups[:SLOTS]))
+    rest_on = [g for g in groups[SLOTS:] if g.enabled]
+    lines += [title(g, COLS) for g in rest_on[:ROWS - len(lines)]]
     while len(lines) < ROWS:
         lines.append("")
     return lines
 
 
-def check(path: str, cart: bool, slots: int, table: dict, show: bool) -> bool:
-    bitmap, _ = render(path, cart, slots)
+def check(path: str, cart: bool, slots: int, master: bool, table: dict,
+          show: bool) -> bool:
+    bitmap, _ = render(path, cart, slots, master)
     got = read_text(bitmap, table)
-    want = expected(path, cart, slots)
+    want = expected(path, cart, slots, master)
     name = os.path.basename(path)
     mode = "cartridge" if cart else "rom"
-    print(f"--- {name}  ({mode}, slots {slots:02b})")
+    print(f"--- {name}  ({mode}, slots {slots:02b}, master {'on' if master else 'off'})")
     if show:
         for line in got:
             print(f"    |{line}")
@@ -153,8 +161,9 @@ def main() -> int:
     for path in files:
         for cart in (False, True):
             for slots in range(4):
-                total += 1
-                ok += check(path, cart, slots, table, args.show)
+                for master in (False, True):
+                    total += 1
+                    ok += check(path, cart, slots, master, table, args.show)
     print(f"\n{ok}/{total} passed")
     return 0 if ok == total else 1
 
