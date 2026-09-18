@@ -23,7 +23,7 @@ CORE_DIR=$(ls -d "$REPO/pkg/$TARGET/Cores"/*/ | head -1)
 CORE_NAME=$(basename "$CORE_DIR")
 RBF_NAME=$(python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['core']['cores'][0]['filename'])" "$CORE_DIR/core.json")
 
-echo "== target=$TARGET core=$CORE_NAME version=$VERSION bitstream=$RBF_NAME"
+echo "== target=$TARGET core=$CORE_NAME version=$STAMP bitstream=$RBF_NAME"
 
 # 1. Sync source into the build dir. Excluded dirs are Quartus scratch and
 #    survive across runs so incremental compiles still work; `make clean` wipes them.
