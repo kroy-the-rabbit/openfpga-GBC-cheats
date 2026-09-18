@@ -12,6 +12,7 @@
 //   +f=<path>     cheat file to load
 //   +cart=1       pretend a cartridge is in the slot
 //   +show=0       leave the overlay switched off
+//   +slots=N      bit 0 turns slot 1 on, bit 1 slot 2 (default both off)
 
 `timescale 1ns/1ps
 
@@ -65,14 +66,16 @@ module tb_osd;
 
   reg de = 0, v_blank = 1;
   reg cart = 0, show = 1;
+  reg [1:0] slots = 2'b00;
   wire active, ink;
 
+  // The slots are the menu's, not the file's: the loader's mask is not used.
   cheat_osd #(.COLS(COLS), .ROWS(ROWS)) osd (
     .clk (clk_vid), .reset (reset),
     .show (show), .cart_mode (cart),
     .de (de), .v_blank (v_blank),
-    .enable_mask (enable_mask),
-    .group_count (group_count), .code_count (codes_on),
+    .enable_mask ({30'd0, slots}),
+    .group_count (group_count), .code_count (code_count),
     .title_group (t_group), .title_col (t_col),
     .title_char (t_char), .title_len (t_len),
     .font_ch (font_ch), .font_row (font_row), .font_bits (font_bits),
@@ -163,6 +166,7 @@ module tb_osd;
   initial begin
     if ($value$plusargs("cart=%d", arg)) cart = (arg != 0);
     if ($value$plusargs("show=%d", arg)) show = (arg != 0);
+    if ($value$plusargs("slots=%d", arg)) slots = arg[1:0];
     if ($value$plusargs("dbg=%d", arg)) dbg = (arg != 0);
 
     repeat (8) @(posedge clk_sys);
@@ -175,8 +179,8 @@ module tb_osd;
     frame(1'b0);      // the display list is built during blanking, so draw twice
     frame(1'b1);
 
-    $display("PARSED codes=%0d groups=%0d mask=%08x", code_count, group_count,
-             enable_mask);
+    $display("PARSED codes=%0d groups=%0d slots=%0d", code_count, group_count,
+             slots);
     $display("FRAME %0d %0d", V_ACTIVE, H_ACTIVE);
     for (y = 0; y < V_ACTIVE; y = y + 1) begin
       $write("PIX ");

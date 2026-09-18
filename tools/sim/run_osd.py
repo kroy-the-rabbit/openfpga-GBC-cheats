@@ -8,7 +8,7 @@ back out of that bitmap and compares the text against what the file says should
 be on screen, so a wrong character, a shifted column or a title that never
 arrived is a failure rather than something to notice by eye later.
 
-    tools/sim/run_osd.py                 # every example file, both modes
+    tools/sim/run_osd.py                 # every example file, both modes, every slot state
     tools/sim/run_osd.py --show          # print the screen as text
 """
 from __future__ import annotations
@@ -32,7 +32,7 @@ SOURCES = ["tools/sim/tb_osd.sv", "src/gb/cheat_loader.sv",
 
 COLS, ROWS = 26, 18
 CELL_W, CELL_H = 6, 8
-TITLE_W = 26
+SLOTS, PREFIX = 2, 6        # "1 ON  " ahead of each name, as cheat_osd draws it
 
 
 def compile_tb() -> None:
@@ -48,8 +48,9 @@ def glyph_table() -> dict[tuple, str]:
     return table
 
 
-def render(path: str, cart: bool) -> tuple[list[str], str]:
-    out = subprocess.run([TB, f"+f={path}", f"+cart={int(cart)}"],
+def render(path: str, cart: bool, slots: int) -> tuple[list[str], str]:
+    out = subprocess.run([TB, f"+f={path}", f"+cart={int(cart)}",
+                          f"+slots={slots}"],
                          capture_output=True, text=True, check=True).stdout
     bitmap = [line[4:] for line in out.splitlines() if line.startswith("PIX ")]
     if len(bitmap) != ROWS * CELL_H:
@@ -80,15 +81,13 @@ def read_text(bitmap: list[str], table: dict[tuple, str]) -> list[str]:
     return lines
 
 
-def expected(path: str, cart: bool) -> list[str]:
+def expected(path: str, cart: bool, slots: int) -> list[str]:
     groups = chtparse.parse(open(path, "rb").read())
-    on = [g for g in groups if g.enabled]
-    codes = sum(len(g.codes) for g in on)
-    head = f"{len(on)} CHEATS {codes} CODES"
+    codes = sum(len(g.codes) for g in groups)
     # The renderer lays the header out in fixed columns rather than joining
     # words, so build it the same way instead of guessing at the spacing.
     cells = [" "] * COLS
-    n, m = str(len(on)), str(codes)
+    n, m = str(len(groups)), str(codes)
     if len(n) == 2:
         cells[0], cells[1] = n[0], n[1]
     else:
@@ -106,22 +105,23 @@ def expected(path: str, cart: bool) -> list[str]:
         head = "NO CHEATS LOADED"
 
     lines = [head, "CARTRIDGE" if cart else "ROM FILE"]
-    for g in on[:ROWS - 2]:
-        title = (g.desc or "").upper()[:TITLE_W]
+    for i, g in enumerate(groups[:SLOTS]):
+        title = (g.desc or "").upper()[:COLS - PREFIX]
         title = "".join(c if 32 <= ord(c) <= 95 else " " for c in title)
-        lines.append(title.rstrip())
+        mark = "ON " if slots >> i & 1 else "OFF"
+        lines.append(f"{i + 1} {mark} {title}".rstrip())
     while len(lines) < ROWS:
         lines.append("")
     return lines
 
 
-def check(path: str, cart: bool, table: dict, show: bool) -> bool:
-    bitmap, _ = render(path, cart)
+def check(path: str, cart: bool, slots: int, table: dict, show: bool) -> bool:
+    bitmap, _ = render(path, cart, slots)
     got = read_text(bitmap, table)
-    want = expected(path, cart)
+    want = expected(path, cart, slots)
     name = os.path.basename(path)
     mode = "cartridge" if cart else "rom"
-    print(f"--- {name}  ({mode})")
+    print(f"--- {name}  ({mode}, slots {slots:02b})")
     if show:
         for line in got:
             print(f"    |{line}")
@@ -152,8 +152,9 @@ def main() -> int:
     total = 0
     for path in files:
         for cart in (False, True):
-            total += 1
-            ok += check(path, cart, table, args.show)
+            for slots in range(4):
+                total += 1
+                ok += check(path, cart, slots, table, args.show)
     print(f"\n{ok}/{total} passed")
     return 0 if ok == total else 1
 

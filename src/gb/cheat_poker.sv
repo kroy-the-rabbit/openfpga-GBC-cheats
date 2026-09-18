@@ -40,7 +40,7 @@ module cheat_poker #(
 ) (
     input  wire                clk,
     input  wire                reset,
-    input  wire                enable,      // master cheat switch
+    input  wire                enable,      // module enable; the core ties it high
     input  wire                vblank,      // level from the LCD, edge detected here
     input  wire                blocked,     // savestate owns the RAM port
 

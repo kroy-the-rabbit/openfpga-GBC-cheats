@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Generate the cheat entries in both packages' interact.json.
 
-Which cheats are on is decided by the cheat file itself, through the `enable`
-key that libretro .cht files already carry, so the menu needs only two entries:
-a global switch and a readout showing what was parsed.
+Two cheat slots, the first two cheats in the file, each with a check box, and
+a switch for the overlay that names them. The file's `enable` keys are not
+consulted; the slots are the whole switch.
 
     tools/cheats/genmenu.py            # rewrite the JSON
     tools/cheats/genmenu.py --check    # verify it is up to date
@@ -22,47 +22,54 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 MAX_ENTRIES = 16     # APF's ceiling on interact.json entries
 MAX_GROUPS = 32      # cheat groups the RTL can hold (matches cheat_loader)
 
-# id block reserved for cheats; ids are persistence keys, so they must be stable
-ID_MASTER, ID_SHOW = 1010, 1011
+# id block reserved for cheats. ids are persistence keys; none of these persist,
+# but the slots still get ids of their own rather than the old switch's 1010,
+# so nothing saved by an older build can land in a control that means
+# something else.
+ID_SHOW, ID_SLOT1, ID_SLOT2 = 1011, 1012, 1013
 
-ADDR_MASTER = "0xF3000000"   # bit 0, the global cheat switch
-# The overlay gets an address of its own rather than another bit of the one
-# above. Two checkboxes sharing a word have to compose it through their masks,
-# and on hardware they did not: toggling the cheat switch cleared the overlay,
-# and the overlay checkbox did nothing at all. One control, one word.
+# Each control has an address of its own rather than a bit of a shared word.
+# Two checkboxes sharing a word have to compose it through their masks, and on
+# hardware they did not: toggling one cleared the other, and the second
+# checkbox did nothing at all. One control, one word.
+ADDR_SLOT1 = "0xF3000000"
+ADDR_SLOT2 = "0xF300000C"
 ADDR_SHOW = "0xF3000010"
 
 TARGETS = (("gbc", "kroy.GBC"), ("gb", "kroy.GB"))
 
 
+def switch(name: str, id_: int, address: str) -> dict:
+    # Off at every launch, and never remembered. Two reasons. APF keys saved
+    # values by widget id, so a value written by one build can be restored
+    # into a control that has since changed meaning. And a slot switch decides
+    # whether the core writes into a running game's RAM: a GameShark code
+    # fails open, writing whatever the code says to whatever happens to be at
+    # that address, so a session that begins with cheats live because of
+    # something you did days ago is the wrong default. Turning one on is one
+    # press and the overlay says what it did.
+    return {
+        "name": name, "id": id_, "type": "check",
+        "enabled": True, "persist": False, "address": address,
+        "mask": "0xFFFFFFFE", "defaultval": "0x00000000", "value": "0x00000001",
+    }
+
+
 def cheat_entries() -> list[dict]:
-    return [{
-        # Off at every launch, and never remembered. Two reasons. APF keys
-        # saved values by widget id, so a value written by one build can be
-        # restored into a control that has since changed meaning. And this
-        # switch decides whether the core writes into a running game's RAM:
-        # a GameShark code fails open, writing whatever the code says to
-        # whatever happens to be at that address, so a session that begins
-        # with cheats live because of something you did days ago is the wrong
-        # default. Turning them on is one press and it says what it did.
-        "name": "Cheats enabled", "id": ID_MASTER, "type": "check",
-        "enabled": True, "persist": False, "address": ADDR_MASTER,
-        "mask": "0xFFFFFFFE", "defaultval": "0x00000000", "value": "0x00000001",
-    }, {
-        # Draws the names of the enabled cheats over the game picture. That is
-        # the only place a core can put text: APF fixes every menu label in
-        # this file at build time, so a menu row can never say more than
-        # "Cheat 1". Not persisted either, and off by default, because it
-        # covers the game.
-        "name": "Show cheats", "id": ID_SHOW, "type": "check",
-        "enabled": True, "persist": False, "address": ADDR_SHOW,
-        "mask": "0xFFFFFFFE", "defaultval": "0x00000000", "value": "0x00000001",
-    }]
+    return [
+        # Slot 1 is the first cheat in the file, slot 2 the second.
+        switch("Cheat slot 1", ID_SLOT1, ADDR_SLOT1),
+        switch("Cheat slot 2", ID_SLOT2, ADDR_SLOT2),
+        # Draws the loaded cheats over the game picture, each marked on or
+        # off. That is the only place a core can put text: APF fixes every
+        # menu label in this file at build time, so a menu row can never say
+        # more than "Cheat slot 1". Off by default because it covers the game.
+        switch("Show cheats", ID_SHOW, ADDR_SHOW),
+    ]
 
 
 def is_cheat_entry(x: dict) -> bool:
-    return x.get("id", 0) in (ID_MASTER, ID_SHOW) or \
-        1011 <= x.get("id", 0) <= 1030      # older per-cheat toggles and page
+    return 1010 <= x.get("id", 0) <= 1030   # and the older switch and toggles
 
 
 def build() -> dict[str, str]:
@@ -106,8 +113,7 @@ def main() -> int:
     if stale:
         print("out of date, run tools/cheats/genmenu.py:", *stale, sep="\n  ")
         return 1
-    print("menu: global switch + on screen list; "
-          "per-cheat state comes from the .cht")
+    print("menu: two cheat slots + on screen list")
     return 0
 
 

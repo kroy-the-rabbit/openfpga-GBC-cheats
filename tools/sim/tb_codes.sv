@@ -101,12 +101,12 @@ module tb_codes;
     enable_mask = 32'h00000000; repeat (2) @(posedge clk);
     expect_ovr(16'hC6AD, 8'h00, 1'b0, 8'h00, "all groups masked off");
 
-    // master switch
+    // module enable (tied high in the core; the mask is the switch there)
     enable_mask = 32'hFFFFFFFF; repeat (2) @(posedge clk);
     enable = 1'b0; #1;
-    expect_ovr(16'hC6AD, 8'h00, 1'b0, 8'h00, "master switch off");
+    expect_ovr(16'hC6AD, 8'h00, 1'b0, 8'h00, "module enable off");
     enable = 1'b1; repeat (2) @(posedge clk);
-    expect_ovr(16'hC6AD, 8'h00, 1'b1, 8'h99, "master switch back on");
+    expect_ovr(16'hC6AD, 8'h00, 1'b1, 8'h99, "module enable back on");
 
     // reset clears everything
     reset = 1'b1; repeat (2) @(posedge clk); reset = 1'b0;

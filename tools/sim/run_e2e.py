@@ -4,7 +4,8 @@
 
 Sends the file as APF bridge writes at hardware rates, through data_loader's
 dual clock FIFO, cheat_loader and CODES, then asserts that a CPU read of each
-patched address comes back with the cheat value.
+patched address comes back with the cheat value, and that a cheat whose slot
+is off does nothing.
 
     tools/sim/run_e2e.py                      # the files in examples/
     tools/sim/run_e2e.py path/to/game.cht
@@ -35,15 +36,17 @@ def compile_tb() -> None:
                    + [os.path.join(ROOT, s) for s in SOURCES], check=True)
 
 
-def expected(path: str):
-    """What the core should do per address, after enable flags and overwrites.
+def expected(path: str, slots: int):
+    """What the core should do per address, given which slots are on.
 
-    Each entry is (addr, value, compare, uses_compare, poked). `poked` means
-    cheat_poker writes it into RAM and the read override must stay quiet;
-    everything else is a read override as before.
+    Each entry is (addr, value, compare, uses_compare, how). `how` is 1 when
+    cheat_poker writes it into RAM and the read override must stay quiet, 0
+    for a read override, and 2 for a code that must do neither: its cheat is
+    in a slot that is off, or in no slot at all. The file's enable flags play
+    no part.
     """
     groups = chtparse.parse(open(path, "rb").read())
-    mask = chtparse.enable_mask(groups)
+    mask = slots
 
     # The code store holds one entry per (address, cheat), enabled or not: a
     # later code replaces an earlier one only when both belong to the same
@@ -73,6 +76,12 @@ def expected(path: str):
                          1 if c.compare is not None else 0, 0))
     for a, c in poked_last.items():
         hits.append((a, c.value, 0, 0, 1))
+
+    live_addrs = {h[0] for h in hits}
+    for gi, c in entries:
+        if not (mask >> gi & 1) and c.address not in live_addrs:
+            hits.append((c.address, c.value, c.compare or 0,
+                         1 if c.compare is not None else 0, 2))
 
     hits.sort()
     return hits, codes, len(groups), mask, n_entries
@@ -105,24 +114,25 @@ def bank_gate() -> bool:
     return ok
 
 
-def run(path: str) -> bool:
-    hits, codes, groups, mask, n_entries = expected(path)
+def run(path: str, slots: int = 3) -> bool:
+    hits, codes, groups, mask, n_entries = expected(path, slots)
     exp = os.path.join(BUILD, "expected.txt")
     with open(exp, "w") as f:
         for a, v, c, u, p in hits:
             f.write(f"{a} {v} {c} {u} {p}\n")
 
     out = subprocess.run([TB, f"+f={path}", f"+e={exp}",
-                          f"+entries={n_entries}"],
+                          f"+entries={n_entries}", f"+slots={slots}"],
                          capture_output=True, text=True).stdout
     ok = "PASS" in out and "OVERFLOW" not in out
     size = os.path.getsize(path)
 
-    print(f"--- {os.path.basename(path)}")
-    poked = sum(h[4] for h in hits)
+    print(f"--- {os.path.basename(path)}  (slots {slots:02b})")
+    poked = sum(1 for h in hits if h[4] == 1)
+    off = sum(1 for h in hits if h[4] == 2)
     print(f"    file {size} bytes, model: {codes} codes, {groups} cheats, "
-          f"mask {mask:08x}, {n_entries} entries, {len(hits)} checks "
-          f"({poked} poked, {len(hits) - poked} read override)")
+          f"{n_entries} entries, {len(hits)} checks "
+          f"({poked} poked, {len(hits) - poked - off} read override, {off} off)")
     for line in out.strip().splitlines():
         if line.startswith(("RESULT", "FAIL", "DCFIFO", "CHECKED", "FAILURES")):
             print(f"    {line}")
@@ -138,12 +148,18 @@ def main() -> int:
     if not files:
         print("no .cht files given")
         return 2
+    runs = [(p, 3) for p in files]
+    if not sys.argv[1:]:
+        # Three cheats, every slot state: only the cheats in slots that are
+        # on apply, the third never does, and the file's flags change nothing.
+        fix = os.path.join(ROOT, "tools", "sim", "fixtures", "slots.cht")
+        runs += [(fix, s) for s in range(4)]
     compile_tb()
-    bad = [p for p in files if not run(p)]
+    bad = [p for p, s in runs if not run(p, s)]
     if not bank_gate():
         bad.append("bank.cht")
     print()
-    print(f"{len(files) - len(bad)}/{len(files)} passed")
+    print(f"{len(runs) - len(bad)}/{len(runs)} passed")
     return 1 if bad else 0
 
 

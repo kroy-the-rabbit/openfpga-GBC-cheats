@@ -11,12 +11,23 @@
         "value": 1
       },
       {
-        "name": "Cheats enabled",
-        "id": 1010,
+        "name": "Cheat slot 1",
+        "id": 1012,
         "type": "check",
         "enabled": true,
         "persist": false,
         "address": "0xF3000000",
+        "mask": "0xFFFFFFFE",
+        "defaultval": "0x00000000",
+        "value": "0x00000001"
+      },
+      {
+        "name": "Cheat slot 2",
+        "id": 1013,
+        "type": "check",
+        "enabled": true,
+        "persist": false,
+        "address": "0xF300000C",
         "mask": "0xFFFFFFFE",
         "defaultval": "0x00000000",
         "value": "0x00000001"

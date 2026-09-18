@@ -7,7 +7,9 @@
 // loader silently dropped bytes once already, so it gets its own test.
 //
 //   +f=<path>    the .cht file to send
-//   +e=<path>    expected hits, one per line: "<addr> <val> <cmp> <usecmp>"
+//   +e=<path>    expected hits, one per line: "<addr> <val> <cmp> <usecmp> <how>"
+//                how: 0 read override, 1 poked into RAM, 2 must do neither
+//   +slots=N     bit 0 turns slot 1 on, bit 1 slot 2 (default both on)
 //
 // Clocks are the real ones: 74.25 MHz on the bridge side, 33.554432 MHz core.
 
@@ -67,7 +69,10 @@ module tb_e2e;
 
   reg [15:0] addr_in = 0;
   reg [7:0]  data_in = 0;
-  reg        cheats_on = 1;
+  // The slots are the whole switch, as in core_top: the loader's mask is
+  // reported but gates nothing, and the module enables are tied high.
+  reg [31:0] slot_mask = 32'd3;
+  reg [31:0] slots_arg;
   wire       ovr, avail;
   wire [7:0] odata;
 
@@ -82,12 +87,12 @@ module tb_e2e;
   CODES codes (
       .clk         (clk_sys),
       .reset       (reset),
-      .enable      (cheats_on),
+      .enable      (1'b1),
       .available   (avail),
       .addr_in     (addr_in),
       .data_in     (data_in),
       .code        (code),
-      .enable_mask (mask),
+      .enable_mask (slot_mask),
       .genie_ovr   (ovr),
       .genie_data  (odata),
       .scan_index  (scan_index),
@@ -111,7 +116,7 @@ module tb_e2e;
   cheat_poker #(.MAX_CODES(32), .INDEX_W(5)) poker (
       .clk        (clk_sys),
       .reset      (reset),
-      .enable     (cheats_on),
+      .enable     (1'b1),
       .vblank     (vblank),
       .blocked    (blocked),
       .scan_index (scan_index),
@@ -197,6 +202,7 @@ module tb_e2e;
     $fclose(fd);
 
     if ($value$plusargs("bank=%d", bank_arg)) wram_bank = bank_arg[2:0];
+    if ($value$plusargs("slots=%d", slots_arg)) slot_mask = {30'd0, slots_arg[1:0]};
 
     repeat (8) @(posedge clk_sys);
     reset <= 1'b0;
@@ -219,8 +225,8 @@ module tb_e2e;
     frame();
 
     $display("BANK %0d", wram_bank);
-    $display("RESULT bytes=%0d codes=%0d groups=%0d mask=%08x available=%0d entries=%0d",
-             bcount, ccount, gcount, mask, avail, entry_count);
+    $display("RESULT bytes=%0d codes=%0d groups=%0d filemask=%08x slots=%0d available=%0d entries=%0d",
+             bcount, ccount, gcount, mask, slot_mask[1:0], avail, entry_count);
 
     // APF always sends whole 32-bit words, so a file that is not a multiple
     // of four arrives rounded up with zero padding. The parser ignores it.
@@ -241,7 +247,18 @@ module tb_e2e;
         addr_in = ea[15:0];
         data_in = eu ? ec[7:0] : 8'h00;
         #1;
-        if (ep) begin
+        if (ep == 2) begin
+          // A code in a slot that is off, or in no slot: nothing, even with
+          // the compare byte matching and whatever the file's flag said.
+          if (written[ea[15:0]]) begin
+            fails = fails + 1;
+            $display("FAIL: addr %04x was poked by a cheat that is off", ea);
+          end
+          if (ovr) begin
+            fails = fails + 1;
+            $display("FAIL: addr %04x overrides for a cheat that is off", ea);
+          end
+        end else if (ep) begin
           // A GameShark code the poker owns: it must be written into RAM, and
           // it must NOT also fake the CPU's read. Overriding the read is what
           // stops the game clamping the value to its own maximum.
@@ -294,16 +311,17 @@ module tb_e2e;
     end
     blocked = 0;
 
-    // and with cheats off, nothing is written either
-    cheats_on = 0;
+    // and with both slots off, nothing is written either
+    slot_mask = 32'd0;
+    repeat (2) @(posedge clk_sys);      // entry_ena is registered
     pokes     = 0;
     frame();
     if (pokes != 0) begin
       fails = fails + 1;
-      $display("FAIL: %0d pokes issued with cheats switched off", pokes);
+      $display("FAIL: %0d pokes issued with both slots off", pokes);
     end
 
-    // ------------------------------------------------- the master switch --
+    // ------------------------------------------------- both slots off --
     #1;
     got = 0;
     for (i = 0; i < 65536; i = i + 1) begin
@@ -314,9 +332,8 @@ module tb_e2e;
     end
     if (got != 0) begin
       fails = fails + 1;
-      $display("FAIL: %0d addresses still override with cheats off", got);
+      $display("FAIL: %0d addresses still override with both slots off", got);
     end
-    cheats_on = 1;
 
     for (i = 0; i < 65536; i = i + 1)
       if (written[i]) $display("WROTE %04x=%02x", i[15:0], ram[i]);

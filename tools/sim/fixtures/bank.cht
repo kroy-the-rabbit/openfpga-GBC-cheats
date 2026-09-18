@@ -1,13 +1,11 @@
-cheats = 3
+cheats = 2
+
+# Two cheats, so both fit the slots: an any-bank code, then one code per bank
 
 cheat0_desc = "Any bank"
 cheat0_code = "0111A0D0"
 cheat0_enable = true
 
-cheat1_desc = "Bank 1 only"
-cheat1_code = "9122A1D0"
+cheat1_desc = "Bank 1 and bank 2 only"
+cheat1_code = "9122A1D0+9233A2D0"
 cheat1_enable = true
-
-cheat2_desc = "Bank 2 only"
-cheat2_code = "9233A2D0"
-cheat2_enable = true

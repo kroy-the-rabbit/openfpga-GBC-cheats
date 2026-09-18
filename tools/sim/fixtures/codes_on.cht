@@ -1,6 +1,6 @@
 cheats = 5
 
-# The header counts only codes in cheats left on
+# The header counts every cheat and code parsed, whatever the file's flags say
 
 cheat0_desc = "Two on"
 cheat0_code = "0111A0D0+0122A1D0"

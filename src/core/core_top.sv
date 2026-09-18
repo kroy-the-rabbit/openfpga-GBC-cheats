@@ -472,6 +472,7 @@ always_comb begin
     32'hF3000000: begin bridge_rd_data = int_bridge_read_data;        end
     32'hF3000004: begin bridge_rd_data = int_bridge_read_data;        end
     32'hF3000008: begin bridge_rd_data = int_bridge_read_data;        end
+    32'hF300000C: begin bridge_rd_data = int_bridge_read_data;        end
     32'hF3000010: begin bridge_rd_data = int_bridge_read_data;        end
     default:      begin bridge_rd_data = 0;                           end
   endcase
@@ -479,15 +480,18 @@ end
 
 reg [31:0] boot_settings = 32'h0;
 reg [31:0] run_settings  = 32'h0;
-//! Cheats are switched on and off in the cheat file itself (each cheat's
-//! `enable` key), which cheat_loader turns into a per-group mask. The only
-//! menu control is this global switch.
+//! Two cheat slots. Slot 1 is the first cheat in the file, slot 2 the second;
+//! each menu check box turns one on. The file's `_enable` keys gate nothing.
+// Each switch has an address of its own: two check boxes sharing a word have to
+// compose it through their masks, and on hardware they did not (see
+// docs/CHEATS.md, Menu reference).
 // Off until something asks for it. APF writes the interact defaults at boot,
 // and this matches them; Power-Up Don't Care is on for this project, so the
 // initial value is a statement of intent rather than a guarantee, which is why
 // the default in interact.json is the one that matters.
-reg cheats_master = 1'b0;
-reg cheats_osd    = 1'b0;   //! Show the enabled cheats over the picture
+reg cheat_slot1 = 1'b0;
+reg cheat_slot2 = 1'b0;
+reg cheats_osd  = 1'b0;     //! Show the loaded cheats over the picture
 logic [31:0] int_bridge_read_data;
 
 always_ff @(posedge clk_74a) begin
@@ -498,8 +502,9 @@ always_ff @(posedge clk_74a) begin
       32'hF0000000: begin /*         RESET ONLY          */ reset_timer <= 1; end //! Reset Core Command
       32'hF1000000: begin boot_settings  <= bridge_wr_data; reset_timer <= 1; end //! System Settings
       32'hF2000000: begin run_settings   <= bridge_wr_data;                   end //! Runtime settings
-      32'hF3000000: begin cheats_master  <= bridge_wr_data[0];                end //! Cheats enabled
-      32'hF3000010: begin cheats_osd    <= bridge_wr_data[0];                end //! Show the cheat list
+      32'hF3000000: begin cheat_slot1    <= bridge_wr_data[0];                end //! Cheat slot 1
+      32'hF300000C: begin cheat_slot2    <= bridge_wr_data[0];                end //! Cheat slot 2
+      32'hF3000010: begin cheats_osd     <= bridge_wr_data[0];                end //! Show the cheat list
     endcase
   end
 
@@ -507,11 +512,12 @@ always_ff @(posedge clk_74a) begin
     case (bridge_addr)
       32'hF1000000: begin int_bridge_read_data  <= boot_settings;  end //! System Settings
       32'hF2000000: begin int_bridge_read_data  <= run_settings;   end //! Runtime settings
-      32'hF3000000: begin int_bridge_read_data  <= {31'd0, cheats_master}; end //! Cheats enabled
-      32'hF3000010: begin int_bridge_read_data  <= {31'd0, cheats_osd};    end //! Show the cheat list
+      32'hF3000000: begin int_bridge_read_data  <= {31'd0, cheat_slot1}; end //! Cheat slot 1
+      32'hF300000C: begin int_bridge_read_data  <= {31'd0, cheat_slot2}; end //! Cheat slot 2
+      32'hF3000010: begin int_bridge_read_data  <= {31'd0, cheats_osd};  end //! Show the cheat list
       32'hF3000004: begin int_bridge_read_data  <= {cheat_bytes_s, cheat_groups_s, cheat_codes_s}; end //! {bytes received, cheats, codes}
-      32'hF3000008: begin int_bridge_read_data  <= {gg_pokes_s, gg_ovr_s, cheat_mask_s,
-                                                    cheats_master, 1'b0, gg_entries_s}; end //! cheat diagnostics
+      32'hF3000008: begin int_bridge_read_data  <= {gg_pokes_s, gg_ovr_s, 8'd0,
+                                                    cheat_slot2, cheat_slot1, gg_entries_s}; end //! cheat diagnostics
     endcase
   end
 end
@@ -650,11 +656,12 @@ always_ff @(posedge clk_sys) begin
 end
 
 wire [128:0] gg_code;
-wire [31:0]  cheat_enable;
 wire [19:0]  cheat_bytes;
-wire [5:0]   cheat_codes, cheat_codes_on, cheat_groups;
+wire [5:0]   cheat_codes, cheat_groups;
 wire         gg_available;
 
+// The loader still reads each cheat's `_enable` key into a mask and counts the
+// codes it leaves on; neither output is connected. The slots decide.
 cheat_loader #(
   .MAX_CODES  ( 32 ),
   .MAX_GROUPS ( 32 )
@@ -664,9 +671,9 @@ cheat_loader #(
   .wr          ( cheat_wr     ),
   .data        ( cheat_dout   ),
   .code        ( gg_code      ),
-  .enable_mask ( cheat_enable ),
+  .enable_mask (              ),
   .code_count  ( cheat_codes  ),
-  .codes_on    ( cheat_codes_on ),
+  .codes_on    (              ),
   .group_count ( cheat_groups ),
   .byte_count  ( cheat_bytes  ),
   .desc_wr     ( desc_wr      ),
@@ -677,8 +684,9 @@ cheat_loader #(
 );
 
 // ---------------------------------------------------------------- overlay --
-// The names of the enabled cheats, drawn over the game picture. APF fixes menu
-// labels at build time, so the menu can never name a cheat; the picture can.
+// The names of the loaded cheats, drawn over the game picture with each slot
+// marked on or off. APF fixes menu labels at build time, so the menu can never
+// name a cheat; the picture can.
 wire       desc_wr, desc_end;
 wire [4:0] desc_group, desc_col;
 wire [5:0] desc_char;
@@ -711,16 +719,17 @@ cheat_font font (
 );
 
 // The mask and the counters are written on clk_sys and read on clk_vid. They
-// change only while a file loads, and the overlay is cosmetic, so this is a
-// plain two stage register rather than a synchroniser per bit: the worst a
-// skewed sample can do is draw one frame with a stale count.
+// change only when a file loads or a slot is switched, and the overlay is
+// cosmetic, so this is a plain two stage register rather than a synchroniser
+// per bit: the worst a skewed sample can do is draw one frame with a stale
+// count.
 reg [31:0] osd_mask_ss, osd_mask_s;
 reg [5:0]  osd_groups_ss, osd_groups_s, osd_codes_ss, osd_codes_s;
 reg        osd_show_ss, osd_show_s, osd_cart_ss, osd_cart_s;
 always_ff @(posedge clk_vid) begin
   osd_mask_ss   <= cheat_enable_live; osd_mask_s   <= osd_mask_ss;
   osd_groups_ss <= cheat_groups;      osd_groups_s <= osd_groups_ss;
-  osd_codes_ss  <= cheat_codes_on;    osd_codes_s  <= osd_codes_ss;
+  osd_codes_ss  <= cheat_codes;       osd_codes_s  <= osd_codes_ss;
   osd_show_ss   <= cheats_osd;        osd_show_s   <= osd_show_ss;
   osd_cart_ss   <= osnotify_adapter_play; osd_cart_s <= osd_cart_ss;
 end
@@ -746,12 +755,14 @@ cheat_osd osd (
   .ink         ( osd_ink     )
 );
 
-// The enable mask is published only once a file has finished loading. It is
-// built as the file streams, and a cheat's `_enable = false` arrives after the
-// codes it disables: for that window the cheat is live on a running core. A
-// read override would be transient, but a GameShark poke in that window is
-// written into RAM and stays there.
-wire [31:0] cheat_enable_live = cheat_download_s2 ? 32'd0 : cheat_enable;
+// The slots are the whole gate: bit n of the mask is group n, and only groups
+// 0 and 1 can ever be on. Synchronised rather than used raw: the slot bits are
+// written in the clk_74a bridge domain and this reaches the combinational
+// override on the CPU's data input, which is no place for an unsynchronised
+// crossing.
+wire [1:0] slots_on;
+synch_3 #(.WIDTH(2)) s_slots ({cheat_slot2, cheat_slot1}, slots_on, clk_sys);
+wire [31:0] cheat_enable_live = {30'd0, slots_on};
 
 // Counters cross to the bridge domain for the "Cheats loaded" menu readout.
 // They only change while a file is loading, so two flops are enough.
@@ -763,28 +774,19 @@ always_ff @(posedge clk_74a) begin
   cheat_bytes_ss  <= cheat_bytes;   cheat_bytes_s  <= cheat_bytes_ss;
 end
 
-// Diagnostics. "Cheats loaded" says what the parser made of the file, which
-// leaves everything after it invisible: whether the codes reached the code
-// store, whether the file's enable flags survived, and which half of the engine
-// is actually doing anything. These say the rest.
+// Diagnostics. 0xF3000004 says what the parser made of the file, which leaves
+// everything after it invisible: whether the codes reached the code store and
+// which half of the engine is actually doing anything. These say the rest.
 wire [5:0] gg_entries;
 wire [7:0] gg_ovr_hits, gg_pokes;
 
 reg [5:0] gg_entries_s, gg_entries_ss;
 reg [7:0] gg_ovr_s, gg_ovr_ss, gg_pokes_s, gg_pokes_ss;
-reg [7:0] cheat_mask_s, cheat_mask_ss;
 always_ff @(posedge clk_74a) begin
   gg_entries_ss <= gg_entries;         gg_entries_s <= gg_entries_ss;
   gg_ovr_ss     <= gg_ovr_hits;        gg_ovr_s     <= gg_ovr_ss;
   gg_pokes_ss   <= gg_pokes;           gg_pokes_s   <= gg_pokes_ss;
-  cheat_mask_ss <= cheat_enable_live[7:0]; cheat_mask_s <= cheat_mask_ss;
 end
-
-// Master switch. Synchronised rather than used raw: cheats_master is written in
-// the clk_74a bridge domain and this reaches the combinational override on the
-// CPU's data input, which is no place for an unsynchronised crossing.
-wire cheats_on;
-synch_3 s_cheats (cheats_master, cheats_on, clk_sys);
 
 
 logic bk_wr, bk_rd, bk_rtc_wr, loading_done;
@@ -1263,7 +1265,7 @@ gb gb
 
   // cheat engine
   .gg_reset               ( gg_reset                ),
-  .gg_en                  ( cheats_on               ),
+  .gg_en                  ( 1'b1                    ),  // the mask is the switch
   .gg_mask                ( cheat_enable_live       ),
   .gg_code                ( gg_code                 ),
   .gg_available           ( gg_available            ),
