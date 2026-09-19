@@ -78,20 +78,31 @@ jobs:
           python3 tools/sim/run_e2e.py
 
       # The published packages, checked rather than produced. `gh` reads the
-      # release; nothing here writes one.
+      # release; nothing here writes one. On dispatch, the latest release.
       - name: Verify the published packages
-        if: startsWith(github.ref, 'refs/tags/')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          tag="$GITHUB_REF_NAME"
+          if [[ "$GITHUB_REF_TYPE" == tag ]]; then
+            tag="$GITHUB_REF_NAME"
+          else
+            tag=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName -q .tagName)
+          fi
+          source tools/podman/version.sh
+          pocket_version "$tag"
+          git merge-base --is-ancestor "$tag" HEAD
           version="${tag#v}"
           mkdir -p dist && cd dist
-          gh release download "$tag" -p "kroy.GBC_${version}.zip" -p "kroy.GB_${version}.zip" \
-            -p report-gbc.txt -p report-gb.txt -p BUILD.json -p SHA256SUMS
+          gh release download "$tag" --repo "$GITHUB_REPOSITORY"
           sha256sum -c SHA256SUMS
+          gpg --batch --import RELEASE-KEY.asc
+          gpg --batch --status-fd 1 --verify SHA256SUMS.asc SHA256SUMS \
+            | command grep -F '[GNUPG:] VALIDSIG 7268DF1E6F75DA7731A46B65888C35858FEACF72 '
+          for signature in *.sig; do
+            gpg --batch --verify "$signature" "${signature%.sig}"
+          done
           for core in GBC GB; do
             unzip -p "kroy.${core}_${version}.zip" "Cores/kroy.${core}/core.json" \
               | python3 -c "import json,sys; v=json.load(sys.stdin)['core']['metadata']['version']; print('$core stamped', v); sys.exit(v != '$version')"
           done
-          echo "$tag: packages present, checksums verified, versions stamped."
+          echo "$tag: packages present, checksums and signatures verified, versions stamped."
